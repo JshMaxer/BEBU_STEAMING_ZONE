@@ -1,6 +1,8 @@
 // BEBU'S STREAMING ZONE - Full Movie Streaming Platform
 // Upgraded with VidKing API integration and streaming capabilities
 
+console.log('App.js loading...');
+
 const TMDB_API_KEY = '34d1a1bd431dc14e9243d534340f360b';
 const TMDB_READ_ACCESS_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIzNGQxYTFiZDQzMWRjMTRlOTI0M2Q1MzQzNDBmMzYwYiIsIm5iZiI6MTY5Njk5ODg5Mi4wNzksInN1YiI6IjY1MjYyNjExMDcyMTY2NDViNmRhZmU2NyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.dMDHJ8cb6eWhumAkM88nt_cArUkaLkZZbHJi7R4eI0i8';
 
@@ -52,31 +54,155 @@ const shuffleArray = (array) => {
   return array;
 };
 
-// Local Storage functions
+// Local Storage functions - Complete implementation with all features
 const LocalStorage = {
+  // --- WATCHLIST MANAGEMENT ---
   getWatchlist: () => JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHLIST) || '[]'),
+  
   addToWatchlist: (movie) => {
     const watchlist = LocalStorage.getWatchlist();
     if (!watchlist.find(m => m.id === movie.id)) {
-      watchlist.push(movie);
+      watchlist.push({
+        ...movie,
+        addedToWatchlistAt: new Date().toISOString()
+      });
       localStorage.setItem(STORAGE_KEYS.WATCHLIST, JSON.stringify(watchlist));
+      console.log(`✅ Added "${movie.title}" to watchlist`);
+    } else {
+      console.log(`ℹ️ "${movie.title}" already in watchlist`);
     }
   },
+  
   removeFromWatchlist: (movieId) => {
     const watchlist = LocalStorage.getWatchlist();
+    const movie = watchlist.find(m => m.id === movieId);
     localStorage.setItem(STORAGE_KEYS.WATCHLIST, JSON.stringify(watchlist.filter(m => m.id !== movieId)));
+    if (movie) console.log(`❌ Removed "${movie.title}" from watchlist`);
   },
+  
   isInWatchlist: (movieId) => LocalStorage.getWatchlist().some(m => m.id === movieId),
   
+  getWatchlistCount: () => LocalStorage.getWatchlist().length,
+  
+  clearWatchlist: () => {
+    localStorage.setItem(STORAGE_KEYS.WATCHLIST, JSON.stringify([]));
+    console.log('🧹 Watchlist cleared');
+  },
+
+  // --- WATCHED MOVIES TRACKING ---
   getWatched: () => JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHED) || '[]'),
+  
   addToWatched: (movie) => {
     const watched = LocalStorage.getWatched();
-    if (!watched.find(m => m.id === movie.id)) {
-      watched.push({ ...movie, watchedAt: new Date().toISOString() });
-      localStorage.setItem(STORAGE_KEYS.WATCHED, JSON.stringify(watched));
+    const existing = watched.find(m => m.id === movie.id);
+    
+    if (existing) {
+      // Update the timestamp if already watched
+      existing.watchedAt = new Date().toISOString();
+      existing.watchCount = (existing.watchCount || 1) + 1;
+      console.log(`🔁 Marked "${movie.title}" as watched again (Count: ${existing.watchCount})`);
+    } else {
+      // Add new watched entry with timestamp
+      watched.push({
+        ...movie,
+        watchedAt: new Date().toISOString(),
+        watchCount: 1
+      });
+      console.log(`✅ Marked "${movie.title}" as watched`);
     }
+    
+    localStorage.setItem(STORAGE_KEYS.WATCHED, JSON.stringify(watched));
   },
+  
   isWatched: (movieId) => LocalStorage.getWatched().some(m => m.id === movieId),
+  
+  getWatchedCount: () => LocalStorage.getWatched().length,
+  
+  getWatchedMovie: (movieId) => LocalStorage.getWatched().find(m => m.id === movieId),
+  
+  getWatchedDetails: (movieId) => {
+    const watched = LocalStorage.getWatchedMovie(movieId);
+    if (!watched) return null;
+    return {
+      title: watched.title,
+      watchedAt: watched.watchedAt,
+      watchCount: watched.watchCount || 1,
+      lastWatched: new Date(watched.watchedAt).toLocaleDateString()
+    };
+  },
+  
+  clearWatched: () => {
+    localStorage.setItem(STORAGE_KEYS.WATCHED, JSON.stringify([]));
+    console.log('🧹 Watch history cleared');
+  },
+
+  // --- PREFERENCES MANAGEMENT ---
+  getPreferences: () => {
+    const prefs = localStorage.getItem(STORAGE_KEYS.PREFERENCES);
+    return JSON.parse(prefs || JSON.stringify({
+      theme: 'dark',
+      autoPlay: true,
+      quality: '720p',
+      subtitles: false,
+      language: 'en'
+    }));
+  },
+  
+  setPreference: (key, value) => {
+    const prefs = LocalStorage.getPreferences();
+    prefs[key] = value;
+    localStorage.setItem(STORAGE_KEYS.PREFERENCES, JSON.stringify(prefs));
+    console.log(`⚙️ Preference "${key}" set to "${value}"`);
+  },
+  
+  getPreference: (key) => LocalStorage.getPreferences()[key],
+
+  // --- STATISTICS & REPORTING ---
+  getStatistics: () => {
+    const watchlist = LocalStorage.getWatchlist();
+    const watched = LocalStorage.getWatched();
+    const preferences = LocalStorage.getPreferences();
+    
+    return {
+      watchlistCount: watchlist.length,
+      watchedCount: watched.length,
+      totalWatchTime: watched.reduce((acc, m) => acc + (m.watchCount || 1), 0),
+      preferences: preferences,
+      lastWatchedMovie: watched.length > 0 ? watched[watched.length - 1].title : null,
+      lastWatchedDate: watched.length > 0 ? new Date(watched[watched.length - 1].watchedAt).toLocaleDateString() : null
+    };
+  },
+  
+  printStatistics: () => {
+    const stats = LocalStorage.getStatistics();
+    console.log('📊 BEBU\'S STREAMING ZONE - Statistics:');
+    console.log(`  📺 Movies in Watchlist: ${stats.watchlistCount}`);
+    console.log(`  ✅ Movies Watched: ${stats.watchedCount}`);
+    console.log(`  🎬 Total Watch Count: ${stats.totalWatchTime}`);
+    console.log(`  🎯 Last Watched: ${stats.lastWatchedMovie} (${stats.lastWatchedDate})`);
+  },
+
+  // --- DEBUGGING & MAINTENANCE ---
+  exportData: () => {
+    const data = {
+      watchlist: LocalStorage.getWatchlist(),
+      watched: LocalStorage.getWatched(),
+      preferences: LocalStorage.getPreferences(),
+      exportedAt: new Date().toISOString()
+    };
+    console.log('📤 Exported Data:', data);
+    return data;
+  },
+  
+  clearAllData: () => {
+    if (confirm('⚠️ This will delete ALL your data (Watchlist, Watch History, Preferences). Continue?')) {
+      LocalStorage.clearWatchlist();
+      LocalStorage.clearWatched();
+      localStorage.removeItem(STORAGE_KEYS.PREFERENCES);
+      console.log('🧹 All data cleared!');
+      window.location.reload();
+    }
+  }
 };
 
 // --- API Calls ---
@@ -198,8 +324,10 @@ const getStreamingSources = async (movieTitle, movieYear, tmdbId) => {
 // --- Components ---
 // Enhanced MovieCard with streaming features
 const MovieCard = ({ movie, onPlay, onAddToWatchlist, isInWatchlist, isWatched }) => {
+  const watchedDetails = isWatched ? LocalStorage.getWatchedDetails(movie.id) : null;
+  
   return (
-    <div className="bg-gray-800 rounded-xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-purple-500/40 border border-gray-700">
+    <div className="bg-gray-800 rounded-xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-purple-500/40 border border-gray-700 relative">
       <div className="relative group">
         <img
           src={movie.poster_path ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}` : `https://placehold.co/500x750/333333/FFFFFF?text=No+Image`}
@@ -215,12 +343,28 @@ const MovieCard = ({ movie, onPlay, onAddToWatchlist, isInWatchlist, isWatched }
             <i className="fas fa-play mr-2"></i> Play Now
           </button>
         </div>
-        {isWatched && (
-          <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-            <i className="fas fa-check mr-1"></i> Watched
+        
+        {/* Watched Status Badge with Timestamp */}
+        {isWatched && watchedDetails && (
+          <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-green-600 transition-colors cursor-help" title={`Watched on ${watchedDetails.lastWatched}\nWatch count: ${watchedDetails.watchCount}`}>
+            <div className="flex items-center gap-1">
+              <i className="fas fa-check"></i>
+              <span>Watched</span>
+            </div>
+            <div className="text-xs opacity-90 mt-1">
+              {watchedDetails.watchCount > 1 && `(${watchedDetails.watchCount}x)`}
+            </div>
+          </div>
+        )}
+        
+        {/* In Watchlist Indicator */}
+        {isInWatchlist && !isWatched && (
+          <div className="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+            <i className="fas fa-bookmark mr-1"></i> Saved
           </div>
         )}
       </div>
+      
       <div className="p-6">
         <h2 className="text-2xl font-bold text-purple-300 mb-2">{movie.title}</h2>
         <p className="text-gray-400 text-sm mb-4 line-clamp-3">{movie.overview}</p>
@@ -245,8 +389,9 @@ const MovieCard = ({ movie, onPlay, onAddToWatchlist, isInWatchlist, isWatched }
                 ? 'bg-pink-600 text-white'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
             }`}
+            title={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
           >
-            <i className={`fas fa-heart`}></i>
+            <i className={`${isInWatchlist ? 'fas' : 'far'} fa-heart`}></i>
           </button>
         </div>
       </div>
@@ -929,5 +1074,11 @@ const App = () => {
 };
 
 // Render the App
+console.log('Attempting to render React app...');
+console.log('React:', window.React);
+console.log('ReactDOM:', window.ReactDOM);
+console.log('Root element:', document.getElementById('root'));
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
+console.log('React app rendered successfully!');

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BEBU'S STREAMING ZONE - Debug Console</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .console-log {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            background: #0a0e27;
+            color: #00ff00;
+            padding: 12px;
+            border-radius: 8px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #00ff00;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .console-log::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .console-log::-webkit-scrollbar-track {
+            background: #1a1f3a;
+            border-radius: 4px;
+        }
+
+        .console-log::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 4px;
+        }
+
+        .console-log::-webkit-scrollbar-thumb:hover {
+            background: #00cc00;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div class="min-h-screen p-8">
+        <div class="max-w-6xl mx-auto">
+            <!-- Header -->
+            <div class="mb-8">
+                <h1 class="text-4xl font-bold mb-2">🎬 BEBU'S STREAMING ZONE - Debug Console</h1>
+                <p class="text-gray-400">Monitor your local storage, watchlist, watch history, and preferences</p>
+            </div>
+
+            <!-- Navigation -->
+            <div class="mb-8 flex gap-2 flex-wrap">
+                <button onclick="refreshData()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-all">
+                    <i class="fas fa-sync mr-2"></i> Refresh Data
+                </button>
+                <button onclick="exportData()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-all">
+                    <i class="fas fa-download mr-2"></i> Export Data
+                </button>
+                <button onclick="clearConsole()" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-all">
+                    <i class="fas fa-trash mr-2"></i> Clear Console
+                </button>
+                <button onclick="openMainApp()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-all">
+                    <i class="fas fa-arrow-right mr-2"></i> Go to App
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Statistics Section -->
+                <div>
+                    <h2 class="text-2xl font-bold mb-4">📊 Statistics</h2>
+                    <div id="stats" class="space-y-4">
+                        <div class="stat-card">
+                            <div class="stat-label">Movies in Watchlist</div>
+                            <div class="stat-number" id="watchlistCount">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Movies Watched</div>
+                            <div class="stat-number" id="watchedCount">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Watch Time</div>
+                            <div class="stat-number" id="totalWatches">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div>
+                    <h2 class="text-2xl font-bold mb-4">⚡ Quick Actions</h2>
+                    <div class="space-y-3">
+                        <button onclick="showWatchlist()" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-4 rounded-lg transition-all">
+                            <i class="fas fa-heart mr-2"></i> View Watchlist
+                        </button>
+                        <button onclick="showWatched()" class="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all">
+                            <i class="fas fa-check mr-2"></i> View Watch History
+                        </button>
+                        <button onclick="showPreferences()" class="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white font-bold py-3 px-4 rounded-lg transition-all">
+                            <i class="fas fa-cog mr-2"></i> View Preferences
+                        </button>
+                        <button onclick="addTestMovie()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-4 rounded-lg transition-all">
+                            <i class="fas fa-plus mr-2"></i> Add Test Movie
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console Output -->
+            <div class="mt-8">
+                <h2 class="text-2xl font-bold mb-4">🖥️ Console Output</h2>
+                <div class="console-log" id="console"></div>
+            </div>
+
+            <!-- Detailed Data View -->
+            <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-xl font-bold mb-4">❤️ Watchlist</h3>
+                    <div id="watchlistView" class="bg-gray-800 rounded-lg p-4 max-h-96 overflow-y-auto text-sm">
+                        <p class="text-gray-400">No items yet</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold mb-4">✅ Watch History</h3>
+                    <div id="watchedView" class="bg-gray-800 rounded-lg p-4 max-h-96 overflow-y-auto text-sm">
+                        <p class="text-gray-400">No items yet</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold mb-4">⚙️ Preferences</h3>
+                    <div id="preferencesView" class="bg-gray-800 rounded-lg p-4 max-h-96 overflow-y-auto text-sm">
+                        <p class="text-gray-400">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Storage Info -->
+            <div class="mt-8 bg-blue-900 bg-opacity-30 border border-blue-500 rounded-lg p-6">
+                <h3 class="text-xl font-bold mb-4">ℹ️ Local Storage Info</h3>
+                <p class="mb-2"><strong>Storage Keys:</strong></p>
+                <ul class="ml-4 space-y-1 font-mono text-sm">
+                    <li>📦 <code>bebu_watchlist</code> - Your saved movies</li>
+                    <li>📦 <code>bebu_watched</code> - Movies you've watched with timestamps</li>
+                    <li>📦 <code>bebu_preferences</code> - Your app preferences</li>
+                </ul>
+                <p class="mt-4 text-sm text-gray-400">All data is stored locally in your browser. Nothing is sent to any server.</p>
+            </div>
+
+            <!-- Features Overview -->
+            <div class="mt-8 bg-purple-900 bg-opacity-30 border border-purple-500 rounded-lg p-6">
+                <h3 class="text-xl font-bold mb-4">✨ Features You're Using</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex items-start">
+                        <span class="text-2xl mr-3">💾</span>
+                        <div>
+                            <p class="font-bold">Local Storage</p>
+                            <p class="text-sm text-gray-400">All your data stays on your device</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="text-2xl mr-3">⏱️</span>
+                        <div>
+                            <p class="font-bold">Auto-Tracking</p>
+                            <p class="text-sm text-gray-400">Timestamp when you watched each movie</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="text-2xl mr-3">💚</span>
+                        <div>
+                            <p class="font-bold">Watchlist</p>
+                            <p class="text-sm text-gray-400">Save movies for later viewing</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="text-2xl mr-3">✅</span>
+                        <div>
+                            <p class="font-bold">Watch History</p>
+                            <p class="text-sm text-gray-400">Track movies you've already watched</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="text-2xl mr-3">🎬</span>
+                        <div>
+                            <p class="font-bold">Visual Badges</p>
+                            <p class="text-sm text-gray-400">Green checkmarks for watched movies</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="text-2xl mr-3">🔄</span>
+                        <div>
+                            <p class="font-bold">Persistence</p>
+                            <p class="text-sm text-gray-400">Data survives page refreshes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock LocalStorage implementation for debugging
+        const STORAGE_KEYS = {
+            WATCHLIST: 'bebu_watchlist',
+            WATCHED: 'bebu_watched',
+            PREFERENCES: 'bebu_preferences'
+        };
+
+        const consoleElement = document.getElementById('console');
+        let consoleLogs = [];
+
+        // Override console.log to capture logs
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const message = args.map(arg => {
+                if (typeof arg === 'object') {
+                    return JSON.stringify(arg, null, 2);
+                }
+                return String(arg);
+            }).join(' ');
+            consoleLogs.push(message);
+            updateConsole();
+        };
+
+        function updateConsole() {
+            consoleElement.textContent = consoleLogs.join('\n');
+            consoleElement.scrollTop = consoleElement.scrollHeight;
+        }
+
+        function clearConsole() {
+            consoleLogs = [];
+            consoleElement.textContent = '';
+        }
+
+        function log(message) {
+            console.log(message);
+        }
+
+        function refreshData() {
+            log('🔄 Refreshing data...');
+            const watchlist = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHLIST) || '[]');
+            const watched = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHED) || '[]');
+            const preferences = JSON.parse(localStorage.getItem(STORAGE_KEYS.PREFERENCES) || '{}');
+
+            // Update stats
+            document.getElementById('watchlistCount').textContent = watchlist.length;
+            document.getElementById('watchedCount').textContent = watched.length;
+            document.getElementById('totalWatches').textContent = watched.reduce((sum, m) => sum + (m.watchCount || 1), 0);
+
+            // Update views
+            updateWatchlistView(watchlist);
+            updateWatchedView(watched);
+            updatePreferencesView(preferences);
+
+            log(`✅ Data refreshed!`);
+            log(`📺 Watchlist: ${watchlist.length} movies`);
+            log(`✅ Watched: ${watched.length} movies`);
+            log(`⚙️ Preferences: ${Object.keys(preferences).length} settings`);
+        }
+
+        function updateWatchlistView(watchlist) {
+            const view = document.getElementById('watchlistView');
+            if (watchlist.length === 0) {
+                view.innerHTML = '<p class="text-gray-400">No items yet</p>';
+                return;
+            }
+            view.innerHTML = watchlist.map((m, i) => `
+                <div class="mb-3 pb-3 border-b border-gray-700">
+                    <p class="font-bold text-purple-300">${i + 1}. ${m.title}</p>
+                    <p class="text-xs text-gray-400">Added: ${new Date(m.addedToWatchlistAt).toLocaleDateString()}</p>
+                </div>
+            `).join('');
+        }
+
+        function updateWatchedView(watched) {
+            const view = document.getElementById('watchedView');
+            if (watched.length === 0) {
+                view.innerHTML = '<p class="text-gray-400">No items yet</p>';
+                return;
+            }
+            view.innerHTML = watched.map((m, i) => `
+                <div class="mb-3 pb-3 border-b border-gray-700">
+                    <p class="font-bold text-green-300">${i + 1}. ${m.title}</p>
+                    <p class="text-xs text-gray-400">Watched: ${new Date(m.watchedAt).toLocaleDateString()}</p>
+                    <p class="text-xs text-gray-400">Count: ${m.watchCount || 1}x</p>
+                </div>
+            `).join('');
+        }
+
+        function updatePreferencesView(prefs) {
+            const view = document.getElementById('preferencesView');
+            view.innerHTML = Object.entries(prefs).map(([key, value]) => `
+                <div class="mb-2">
+                    <p class="text-xs text-gray-400">${key}:</p>
+                    <p class="font-mono text-yellow-400">${JSON.stringify(value)}</p>
+                </div>
+            `).join('');
+        }
+
+        function showWatchlist() {
+            const watchlist = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHLIST) || '[]');
+            log(`\n📺 WATCHLIST (${watchlist.length} movies):`);
+            watchlist.forEach((m, i) => {
+                log(`  ${i + 1}. ${m.title} (ID: ${m.id})`);
+            });
+        }
+
+        function showWatched() {
+            const watched = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHED) || '[]');
+            log(`\n✅ WATCH HISTORY (${watched.length} movies):`);
+            watched.forEach((m, i) => {
+                const date = new Date(m.watchedAt).toLocaleString();
+                log(`  ${i + 1}. ${m.title} - Watched: ${date} (${m.watchCount || 1}x)`);
+            });
+        }
+
+        function showPreferences() {
+            const prefs = JSON.parse(localStorage.getItem(STORAGE_KEYS.PREFERENCES) || '{}');
+            log(`\n⚙️ PREFERENCES:`);
+            log(JSON.stringify(prefs, null, 2));
+        }
+
+        function exportData() {
+            const data = {
+                watchlist: JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHLIST) || '[]'),
+                watched: JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHED) || '[]'),
+                preferences: JSON.parse(localStorage.getItem(STORAGE_KEYS.PREFERENCES) || '{}'),
+                exportedAt: new Date().toISOString()
+            };
+            log(`\n📤 EXPORTED DATA:`);
+            log(JSON.stringify(data, null, 2));
+            console.log('Full export:', data); // Also log to browser console
+        }
+
+        function addTestMovie() {
+            const testMovie = {
+                id: Math.floor(Math.random() * 100000),
+                title: 'Test Movie - ' + new Date().toLocaleTimeString(),
+                overview: 'This is a test movie for debugging',
+                poster_path: '/test',
+                vote_average: 8.5,
+                release_date: new Date().toISOString().split('T')[0],
+                watchedAt: new Date().toISOString(),
+                watchCount: 1
+            };
+
+            const watched = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHED) || '[]');
+            watched.push(testMovie);
+            localStorage.setItem(STORAGE_KEYS.WATCHED, JSON.stringify(watched));
+
+            log(`✅ Test movie added: "${testMovie.title}"`);
+            refreshData();
+        }
+
+        function openMainApp() {
+            window.location.href = 'index.html';
+        }
+
+        // Initial refresh
+        setTimeout(() => {
+            log('🎬 BEBU\'S STREAMING ZONE - Debug Console Loaded');
+            log('💾 Local Storage Monitoring Active');
+            refreshData();
+        }, 100);
+    </script>
+</body>
+</html>

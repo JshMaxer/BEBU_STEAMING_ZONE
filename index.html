@@ -10,9 +10,9 @@
     <!-- Google Fonts - Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- React and ReactDOM CDNs -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel for JSX transformation in browser (for development, not production) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX transformation in browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- HLS.js for video streaming support -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -24,13 +24,22 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body style="background: #0f0f0f; color: #fff; font-family: Inter, sans-serif;">
     <div id="root">
-        <!-- Your React app will be mounted here -->
+        <div style="padding: 20px; text-align: center;">
+            <h1>Loading BEBU'S STREAMING ZONE...</h1>
+            <p>Please wait while the application initializes.</p>
+        </div>
     </div>
 
     <!-- Your React component logic -->
     <!-- This links to your external app.js file -->
+    <script>
+        window.addEventListener('error', (e) => {
+            console.error('Global error:', e.error);
+            document.getElementById('root').innerHTML = '<div style="padding: 20px; color: red;"><h2>Error loading app</h2><pre>' + e.error + '</pre></div>';
+        });
+    </script>
     <script type="text/babel" src="app.js"></script>
 </body>
 </html>
