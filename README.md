@@ -17,22 +17,10 @@ Originally built as a C# WinForms movie recommendation engine, **BEBU'S STREAMIN
 ✅ **Full Watchlist System** - Save & manage your movie collection  
 ✅ **Advanced Search** - Find any movie instantly  
 ✅ **Watch History** - Track what you've already watched  
-✅ **VidKing API Ready** - Integrated streaming source support  
+✅ **VidKing / VidLink API Ready** - Integrated streaming source support  
 ✅ **Three-Tab Navigation** - Browse, Watchlist, Search  
 ✅ **Local Storage** - All your data stays on your device  
 ✅ **Mobile Responsive** - Works on any device  
-
----
-
-## 🎮 Quick Start - 30 Seconds
-
-1. Open `index.html` in your browser
-2. Click **Browse** to see movies
-3. Click any movie's **Watch** button
-4. Enjoy the video player!
-
-That's it! No setup required. 🎉
-
 ---
 
 ## ✨ Core Features
@@ -44,7 +32,7 @@ That's it! No setup required. 🎉
 - **Movie Details**: Poster, title, description, TMDB rating, release date
 
 ### ▶️ Watch Movies
-- **Professional Video Player** with VidKing API
+- **Professional Video Player** with VidKing and VidLink API
   - Full video playback and streaming capabilities
   - Adaptive bitrate quality
   - Fullscreen & Picture-in-Picture modes
@@ -110,46 +98,7 @@ Works perfectly on:
 
 ---
 
-## 📚 [Documentation](Documentation.md)
-
-## 🔧 Tech Stack
-
-### Frontend
-- **React** - Modern component-based UI
-- **Tailwind CSS** - Responsive styling
-- **Plyr.js** - Professional video player
-- **HLS.js** - Adaptive streaming support
-- **Font Awesome 6.4.0** - Beautiful icons
-
-### Backend Integration
-- **TMDB API** - Movie database & metadata
-- **VidKing API** - Ready for streaming sources (optional)
-- **Browser LocalStorage** - Data persistence
-
-### Browser Support
-- ✅ Chrome/Chromium (Latest)
-- ✅ Firefox (Latest)
-- ✅ Safari (Latest)
-- ✅ Edge (Latest)
-- ✅ Mobile browsers (iOS Safari, Chrome Mobile)
-
----
-
-## 📂 File Structure
-
-```
-index.html              ← Open this to start
-app.js                  ← React app logic (complete rewrite)
-style.css               ← All styling & animations
-README.md               ← You are here!
-QUICK_START.md          ← Get started in 30 seconds
-STREAMING_FEATURES.md   ← What's new guide
-VIDKING_INTEGRATION.md  ← Add real streaming
-DEPLOYMENT_GUIDE.md     ← How to launch
-UPGRADE_SUMMARY.md      ← What changed
-```
-
----
+## 📚 [View Full Documentation Here](Documentation.md)
 
 ## ⚙️ Key Changes from Original Version
 
@@ -167,62 +116,10 @@ All original features are still here ✅
 | **Watchlist** | ❌ | ✅ **NEW** |
 | **Search** | ❌ | ✅ **NEW** |
 | **Watch History** | ❌ | ✅ **NEW** |
-| **VidKing Ready** | ❌ | ✅ **NEW** |
+| **VidKing / VidLink Ready** | ❌ | ✅ **NEW** |
 | **Local Storage** | ❌ | ✅ **NEW** |
 | **Navigation Tabs** | ❌ | ✅ **NEW** |
 | **Professional UI** | ❌ | ✅ **NEW** |
-
----
-
-## 🎯 Getting Started
-
-### Step 1: Open the App
-Just open `index.html` in your browser. That's it!
-
-### Step 2: Explore Features
-- **Browse Tab** - Browse movies by genre
-- **Watchlist Tab** - See your saved movies
-- **Search Tab** - Find specific movies
-
-### Step 3: Watch a Movie
-1. Click any movie's "Watch" button
-2. Professional video player opens
-3. Enjoy the movie!
-
-### Step 4: Build Your Collection
-- Click the ❤️ heart icon to add to watchlist
-- Click "Mark as Watched" when done
-- Your watchlist persists across sessions
-
----
-
-## 🎨 Customization
-
-### Easy Customizations
-- Change colors in `style.css`
-- Add/remove genres in `app.js`
-- Modify UI elements with Tailwind classes
-- Add new features to components
-
-### Advanced Customizations
-- Integrate with VidKing for real streaming
-- Add user authentication
-- Build recommendation engine
-- Add social features
-
-See [STREAMING_FEATURES.md](STREAMING_FEATURES.md) for detailed customization guide.
-
----
-
-## 🌐 Deployment
-
-### One-Click Hosting Options
-- **GitHub Pages** - Free, automatic from Git repo
-- **Netlify** - Drag & drop or Git integration
-- **Vercel** - Git-powered deployments
-- **Self-Hosted** - Any web server (Apache, Nginx, Node.js)
-
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for step-by-step instructions.
 
 ---
 
@@ -254,18 +151,6 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for step-by-step instructions.
 - Try different browser
 - Check browser console for errors
 
-See [QUICK_START.md](QUICK_START.md) for more troubleshooting.
-
----
-
-## 📊 Performance
-
-- **Initial Load**: ~2 seconds
-- **Search Results**: <500ms
-- **Video Playback**: Instant
-- **Watchlist Operations**: <100ms
-- **Storage Operations**: <10ms
-
 ---
 
 ## 🤝 Credits & Attribution
@@ -273,54 +158,10 @@ See [QUICK_START.md](QUICK_START.md) for more troubleshooting.
 - **Movie Data**: [The Movie Database (TMDB)](https://www.themoviedb.org/) for their comprehensive API
 - **Video Player**: [Plyr.js](https://plyr.io/) for professional video controls
 - **Streaming Tech**: [HLS.js](https://github.com/video-dev/hls.js) for adaptive bitrate streaming
-- **Streaming Service**: [VidKing](https://www.vidking.net/) for streaming infrastructure
+- **Streaming Service**: [VidKing](https://www.vidking.net/) and [VidLink](https://VidLink.pro/) for streaming infrastructure
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/) for modern responsive design
 - **Framework**: [React](https://react.dev/) for component-based architecture
 - **Icons**: [Font Awesome](https://fontawesome.com/) for beautiful icons
-
----
-
-## 📝 Version Info
-
-| Detail | Info |
-|--------|------|
-| **Platform** | BEBU'S STREAMING ZONE |
-| **Version** | 2.0 (Upgraded Streaming Edition) |
-| **Original** | BEBU'S MOVIES RECOMMENDATION v1.0 |
-| **Status** | ✅ Production Ready |
-| **Last Updated** | December 2025 |
-| **Type** | Streaming Platform |
-
----
-
-## 🎉 What's Next?
-
-### Immediate
-- Open `index.html` and explore
-- Test all features locally
-- Build your watchlist
-
-### Short Term
-- Deploy to production
-- Configure VidKing for real streaming
-- Share with friends
-
-### Long Term
-- Add user authentication
-- Cloud synchronization
-- Recommendation engine
-- Social features
-
----
-
-## 📖 Full Documentation
-
-For detailed information on any feature, check:
-- **Getting Started?** → [QUICK_START.md](QUICK_START.md)
-- **Understanding Features?** → [STREAMING_FEATURES.md](STREAMING_FEATURES.md)
-- **Adding Streaming?** → [VIDKING_INTEGRATION.md](VIDKING_INTEGRATION.md)
-- **Going Live?** → [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-- **What Changed?** → [UPGRADE_SUMMARY.md](UPGRADE_SUMMARY.md)
 
 ---
 
