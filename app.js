@@ -14,6 +14,20 @@ const TMDB_BACKDROP_URL = 'https://image.tmdb.org/t/p/original';
 const VIDKING_API_BASE = 'https://vidking.net/api';
 const VIDKING_SOURCE_ID = 'vidking';
 
+// VidLink API Configuration (Fallback when Vidking is offline)
+const VIDLINK_BASE_URL = 'https://vidlink.pro';
+const VIDLINK_SOURCE_ID = 'vidlink';
+const VIDLINK_PLAYER_CONFIG = {
+  primaryColor: '9D00FF',      // Neon Purple
+  secondaryColor: '5B00CC',    // Dark Neon Purple
+  icons: 'default',
+  iconColor: '9D00FF',         // Neon Purple Icons
+  title: true,
+  poster: true,
+  autoplay: false,
+  nextbutton: true
+};
+
 // Storage keys
 const STORAGE_KEYS = {
   WATCHLIST: 'bebu_watchlist',
@@ -211,6 +225,59 @@ const tmdbHeaders = {
   'Content-Type': 'application/json',
 };
 
+// Check if VidKing is online
+const isVidkingOnline = async () => {
+  try {
+    const response = await fetch('https://www.vidking.net', {
+      method: 'HEAD',
+      mode: 'no-cors'
+    });
+    return true;
+  } catch (err) {
+    console.warn('VidKing appears to be offline:', err.message);
+    return false;
+  }
+};
+
+// Build VidLink embed URL with customization parameters
+const buildVidLinkUrl = (tmdbId, customParams = {}) => {
+  const params = { ...VIDLINK_PLAYER_CONFIG, ...customParams };
+  let url = `${VIDLINK_BASE_URL}/movie/${tmdbId}`;
+  
+  const queryParams = [];
+  queryParams.push(`primaryColor=${params.primaryColor}`);
+  queryParams.push(`secondaryColor=${params.secondaryColor}`);
+  queryParams.push(`icons=${params.icons}`);
+  queryParams.push(`iconColor=${params.iconColor}`);
+  queryParams.push(`title=${params.title}`);
+  queryParams.push(`poster=${params.poster}`);
+  queryParams.push(`autoplay=${params.autoplay}`);
+  queryParams.push(`nextbutton=${params.nextbutton}`);
+  
+  return url + '?' + queryParams.join('&');
+};
+
+// Add VidLink progress tracking listener
+const initVidLinkProgressTracking = () => {
+  window.addEventListener('message', (event) => {
+    if (event.origin !== 'https://vidlink.pro') return;
+    
+    if (event.data?.type === 'MEDIA_DATA') {
+      const mediaData = event.data.data;
+      localStorage.setItem('vidLinkProgress', JSON.stringify(mediaData));
+      console.log('VidLink progress saved:', mediaData);
+    }
+    
+    if (event.data?.type === 'PLAYER_EVENT') {
+      const { event: eventType, currentTime, duration } = event.data.data;
+      console.log(`VidLink Player ${eventType} at ${currentTime}s of ${duration}s`);
+    }
+  });
+};
+
+// Initialize VidLink tracking on app load
+initVidLinkProgressTracking();
+
 const fetchGenresApi = async () => {
   const response = await fetch(`${TMDB_BASE_URL}/genre/movie/list?api_key=${TMDB_API_KEY}`, {
     headers: tmdbHeaders,
@@ -266,14 +333,12 @@ const fetchMoviesApi = async (type, genreId, startYear, endYear, page = 1) => {
   return data; // Return full data object with results and total_pages
 };
 
-// Get streaming sources from VidKing API - INTEGRATED WITH TMDB
+// Get streaming sources from VidKing API with VidLink fallback - INTEGRATED WITH TMDB
 const getStreamingSources = async (movieTitle, movieYear, tmdbId) => {
   try {
-    // VidKing Direct Embed - Use TMDB ID to generate embed URL
-    // Format: https://www.vidking.net/embed/movie/{tmdbId}
-    
+    // Check if TMDB ID is available
     if (!tmdbId) {
-      console.warn('No TMDB ID provided, cannot generate VidKing embed');
+      console.warn('No TMDB ID provided, cannot generate streaming embeds');
       return {
         sources: [],
         external: [
@@ -286,26 +351,65 @@ const getStreamingSources = async (movieTitle, movieYear, tmdbId) => {
     // Generate VidKing embed URL with TMDB ID
     const vidkingEmbedUrl = `https://www.vidking.net/embed/movie/${tmdbId}`;
     const vidkingEmbedUrlWithFeatures = `https://www.vidking.net/embed/movie/${tmdbId}?color=9146ff&autoPlay=false`;
+    
+    // Generate VidLink embed URL as fallback
+    const vidlinkEmbedUrl = buildVidLinkUrl(tmdbId);
 
+    // Check if VidKing is online
+    const vidkingOnline = await isVidkingOnline();
+    
     const streamingData = {
-      sources: [
-        {
-          name: 'VidKing 1080p',
-          url: vidkingEmbedUrl,
-          embedUrl: vidkingEmbedUrlWithFeatures,
-          quality: '1080p',
-          type: 'iframe',
-          tmdbId: tmdbId
-        }
-      ],
-      external: [
-        { name: 'IMDb', url: `https://www.imdb.com/find?q=${encodeURIComponent(movieTitle)}` },
-        { name: 'JustWatch', url: `https://www.justwatch.com/search?q=${encodeURIComponent(movieTitle)}` },
-        { name: 'VidKing Search', url: `https://www.vidking.net/?s=${encodeURIComponent(movieTitle)}` }
-      ]
+      sources: [],
+      external: []
     };
 
-    console.log('VidKing streaming source generated:', streamingData);
+    // Add primary source (VidKing if online, VidLink if offline)
+    if (vidkingOnline) {
+      streamingData.sources.push({
+        name: 'VidKing 1080p',
+        url: vidkingEmbedUrl,
+        embedUrl: vidkingEmbedUrlWithFeatures,
+        quality: '1080p',
+        type: 'iframe',
+        tmdbId: tmdbId,
+        provider: 'vidking'
+      });
+      
+      // Add VidLink as backup
+      streamingData.sources.push({
+        name: 'VidLink 1080p (Backup)',
+        url: vidlinkEmbedUrl,
+        embedUrl: vidlinkEmbedUrl,
+        quality: '1080p',
+        type: 'iframe',
+        tmdbId: tmdbId,
+        provider: 'vidlink',
+        isBackup: true
+      });
+      
+      console.log('✅ VidKing is online - added as primary, VidLink as backup');
+    } else {
+      // VidKing is offline, use VidLink as primary
+      streamingData.sources.push({
+        name: 'VidLink 1080p',
+        url: vidlinkEmbedUrl,
+        embedUrl: vidlinkEmbedUrl,
+        quality: '1080p',
+        type: 'iframe',
+        tmdbId: tmdbId,
+        provider: 'vidlink'
+      });
+      
+      console.warn('⚠️ VidKing is offline - using VidLink as primary source');
+    }
+
+    streamingData.external = [
+      { name: 'IMDb', url: `https://www.imdb.com/find?q=${encodeURIComponent(movieTitle)}` },
+      { name: 'JustWatch', url: `https://www.justwatch.com/search?q=${encodeURIComponent(movieTitle)}` },
+      { name: 'VidKing Search', url: `https://www.vidking.net/?s=${encodeURIComponent(movieTitle)}` }
+    ];
+
+    console.log('Streaming sources generated:', streamingData);
     return streamingData;
   } catch (err) {
     console.error('Error creating streaming sources:', err);
@@ -435,12 +539,13 @@ const MovieCard = ({ movie, onPlay, onAddToWatchlist, isInWatchlist, isWatched, 
   );
 };
 
-// Video Player Component - INTEGRATED WITH VIDKING
+// Video Player Component - INTEGRATED WITH VIDKING & VIDLINK
 const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWatchlist }) => {
   const { useState, useEffect, useRef } = React;
   const videoRef = useRef(null);
   const [streamingSources, setStreamingSources] = useState(null);
   const [selectedSource, setSelectedSource] = useState(0);
+  const [selectedProvider, setSelectedProvider] = useState('auto'); // 'auto', 'vidking', 'vidlink'
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -452,12 +557,33 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
         movie.id
       );
       setStreamingSources(sources);
+      setSelectedSource(0);
       setLoading(false);
       console.log('Streaming sources loaded:', sources);
     };
 
     initPlayer();
   }, [movie]);
+
+  // Get the appropriate source based on provider selection
+  const getSourcesByProvider = () => {
+    if (!streamingSources || !streamingSources.sources) return [];
+    
+    if (selectedProvider === 'auto') {
+      // Return all sources (automatic or first available)
+      return streamingSources.sources;
+    } else if (selectedProvider === 'vidking') {
+      // Return only VidKing sources
+      return streamingSources.sources.filter(s => s.provider === 'vidking' || s.name.includes('VidKing'));
+    } else if (selectedProvider === 'vidlink') {
+      // Return only VidLink sources
+      return streamingSources.sources.filter(s => s.provider === 'vidlink' || s.name.includes('VidLink'));
+    }
+    return streamingSources.sources;
+  };
+
+  const availableSources = getSourcesByProvider();
+  const currentSource = availableSources.length > 0 ? availableSources[Math.min(selectedSource, availableSources.length - 1)] : null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50 overflow-auto">
@@ -475,14 +601,14 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
             {loading ? (
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
-                <p className="text-gray-300">Loading VidKing player...</p>
+                <p className="text-gray-300">Loading player...</p>
               </div>
-            ) : streamingSources && streamingSources.sources && streamingSources.sources.length > 0 ? (
+            ) : currentSource ? (
               <div className="w-full h-full">
-                {/* VidKing Iframe Embed */}
+                {/* Provider Iframe Embed */}
                 <iframe
-                  key={`vidking-${selectedSource}`}
-                  src={streamingSources.sources[selectedSource]?.embedUrl || streamingSources.sources[selectedSource]?.url}
+                  key={`${currentSource.provider}-${selectedSource}`}
+                  src={currentSource.embedUrl || currentSource.url}
                   width="100%"
                   height="600"
                   frameBorder="0"
@@ -524,6 +650,93 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
                 <p className="text-white font-bold">{(movie.original_language || 'EN').toUpperCase()}</p>
               </div>
             </div>
+
+            {/* Streaming Provider Selection */}
+            {streamingSources && streamingSources.sources && streamingSources.sources.length > 0 && (
+              <div className="mb-6 p-4 bg-gray-700 rounded-lg border border-purple-500 shadow-lg">
+                <h3 className="text-lg font-bold text-purple-300 mb-4">🎬 Choose Streaming Provider:</h3>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  {/* Auto Select Button */}
+                  <button
+                    onClick={() => {
+                      setSelectedProvider('auto');
+                      setSelectedSource(0);
+                    }}
+                    className={`font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center gap-2 ${
+                      selectedProvider === 'auto'
+                        ? 'bg-purple-600 text-white shadow-lg border border-purple-400'
+                        : 'bg-gray-600 text-gray-200 hover:bg-gray-500'
+                    }`}
+                  >
+                    <i className="fas fa-magic"></i> Auto (Best Available)
+                  </button>
+                  
+                  {/* VidKing Button */}
+                  {streamingSources.sources.some(s => s.provider === 'vidking' || s.name.includes('VidKing')) && (
+                    <button
+                      onClick={() => {
+                        setSelectedProvider('vidking');
+                        setSelectedSource(0);
+                      }}
+                      className={`font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center gap-2 ${
+                        selectedProvider === 'vidking'
+                          ? 'bg-blue-600 text-white shadow-lg border border-blue-400'
+                          : 'bg-gray-600 text-gray-200 hover:bg-gray-500'
+                      }`}
+                    >
+                      <i className="fas fa-crown"></i> VidKing
+                    </button>
+                  )}
+                  
+                  {/* VidLink Button */}
+                  {streamingSources.sources.some(s => s.provider === 'vidlink' || s.name.includes('VidLink')) && (
+                    <button
+                      onClick={() => {
+                        setSelectedProvider('vidlink');
+                        setSelectedSource(0);
+                      }}
+                      className={`font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center gap-2 ${
+                        selectedProvider === 'vidlink'
+                          ? 'bg-purple-600 text-white shadow-lg border border-purple-400'
+                          : 'bg-gray-600 text-gray-200 hover:bg-gray-500'
+                      }`}
+                    >
+                      <i className="fas fa-link"></i> VidLink
+                    </button>
+                  )}
+                </div>
+
+                {/* Quality/Source Selection for Selected Provider */}
+                {availableSources.length > 1 && (
+                  <div className="mt-4 pt-4 border-t border-gray-600">
+                    <p className="text-gray-300 text-sm mb-3">📺 Available Quality/Sources:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {availableSources.map((source, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedSource(idx)}
+                          className={`font-bold py-2 px-4 rounded-lg transition-all ${
+                            idx === selectedSource
+                              ? 'bg-yellow-500 text-black'
+                              : 'bg-gray-600 text-gray-200 hover:bg-gray-500'
+                          }`}
+                        >
+                          {source.name} {source.quality && `(${source.quality})`}
+                          {source.isBackup && ' ⭐'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Provider Info */}
+                <div className="mt-4 pt-4 border-t border-gray-600 text-sm text-gray-400">
+                  {selectedProvider === 'auto' && <p>✓ Auto mode: System will choose the best available provider</p>}
+                  {selectedProvider === 'vidking' && <p>✓ Now playing from VidKing - Fast & Reliable</p>}
+                  {selectedProvider === 'vidlink' && <p>✓ Now playing from VidLink - Full Features & Auto Progress Tracking</p>}
+                </div>
+              </div>
+            )}
 
             {/* Streaming Source Selection */}
             {streamingSources && streamingSources.sources && streamingSources.sources.length > 0 && (
