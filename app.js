@@ -489,8 +489,6 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched }) => {
               </div>
             </div>
 
-            <p className="text-gray-300 text-base mb-6 max-h-24 overflow-y-auto">{movie.overview}</p>
-
             {/* Streaming Source Selection */}
             {streamingSources && streamingSources.sources && streamingSources.sources.length > 0 && (
               <div className="mb-6 p-4 bg-gray-700 rounded-lg border border-gray-600 hidden">
@@ -514,25 +512,22 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched }) => {
               </div>
             )}
 
-            {/* External Streaming Platforms */}
-            {streamingSources && streamingSources.external && streamingSources.external.length > 0 && (
-              <div className="mb-6 p-4 bg-gray-700 rounded-lg border border-gray-600">
-                <h3 className="text-lg font-bold text-green-300 mb-3">🎬 Other Platforms:</h3>
-                <div className="flex flex-wrap gap-3">
-                  {streamingSources.external.map((link, idx) => (
-                    <a
-                      key={idx}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-2 px-4 rounded-lg transition-all transform hover:scale-105 inline-flex items-center"
-                    >
-                      <i className="fas fa-external-link-alt mr-2"></i> {link.name}
-                    </a>
-                  ))}
+            {/* Movie Poster and Description */}
+            <div className="mb-6 p-4 bg-gray-700 rounded-lg border border-gray-600">
+              <div className="flex gap-6 flex-col md:flex-row">
+                <div className="md:w-1/4">
+                  <img
+                    src={movie.poster_path ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}` : `https://placehold.co/300x450/333333/FFFFFF?text=No+Image`}
+                    alt={movie.title}
+                    className="w-full h-auto rounded-lg shadow-lg"
+                  />
+                </div>
+                <div className="md:w-3/4">
+                  <h3 className="text-lg font-bold text-purple-300 mb-3">📽️ About This Movie:</h3>
+                  <p className="text-gray-300 text-base leading-relaxed">{movie.overview || 'No description available.'}</p>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Action Buttons */}
             <div className="flex gap-3 flex-wrap">

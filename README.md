@@ -41,16 +41,13 @@ That's it! No setup required. 🎉
 - **Pick Your Vibe**: Choose from 20+ genres
 - **Monthly Recommendations**: BEBU picks a genre based on the current month
 - **Time Travel**: Filter by release year (classics to new releases)
-- **Surprise Me!**: Get 3 random movies with one click
 - **Movie Details**: Poster, title, description, TMDB rating, release date
 
 ### ▶️ Watch Movies
-- **Professional Video Player** with Plyr.js
-  - Play/Pause, Volume Control, Progress Bar
-  - Quality Selector (1080p, 720p, 480p)
+- **Professional Video Player** with VidKing API
+  - Full video playback and streaming capabilities
+  - Adaptive bitrate quality
   - Fullscreen & Picture-in-Picture modes
-  - Subtitle Support
-  - Airplay & Casting Support
 
 ### ❤️ Watchlist & Collections
 - **Save for Later**: Add movies to your personal watchlist
@@ -233,7 +230,7 @@ Just open `index.html` in your browser. That's it!
 ### Step 3: Watch a Movie
 1. Click any movie's "Watch" button
 2. Professional video player opens
-3. Enjoy! Use keyboard shortcuts (Space to play/pause, F for fullscreen)
+3. Enjoy the movie!
 
 ### Step 4: Build Your Collection
 - Click the ❤️ heart icon to add to watchlist
