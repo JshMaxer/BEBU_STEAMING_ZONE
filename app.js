@@ -352,7 +352,7 @@ const MovieCard = ({ movie, onPlay, onAddToWatchlist, isInWatchlist, isWatched, 
           <h2 className="text-lg font-bold text-purple-300 mb-3">{movie.title}</h2>
           <button
             onClick={() => onAddToWatchlist(movie)}
-            className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center"
+            className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center justify-center"
             title="Remove from watchlist"
           >
             <i className="fas fa-trash mr-2"></i> Remove
@@ -420,7 +420,7 @@ const MovieCard = ({ movie, onPlay, onAddToWatchlist, isInWatchlist, isWatched, 
           </button>
           <button
             onClick={() => onAddToWatchlist(movie)}
-            className={`px-4 py-2 rounded-lg font-bold transition-all duration-300 ${
+            className={`px-4 py-2 rounded-lg font-bold transition-all transform duration-300 hover:scale-110 ${
               isInWatchlist
                 ? 'bg-pink-600 text-white'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
@@ -572,13 +572,13 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
                   onMarkAsWatched();
                   setTimeout(() => onClose(), 500);
                 }}
-                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center"
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center"
               >
                 <i className="fas fa-check mr-2"></i> Mark as Watched & Close
               </button>
               <button
                 onClick={() => onAddToWatchlist(movie)}
-                className={`font-bold py-2 px-6 rounded-lg transition-colors flex items-center ${
+                className={`font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center ${
                   isInWatchlist
                     ? 'bg-pink-600 hover:bg-pink-700 text-white'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -588,7 +588,7 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
               </button>
               <button
                 onClick={onClose}
-                className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center"
+                className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center"
               >
                 <i className="fas fa-times mr-2"></i> Close
               </button>
@@ -1041,7 +1041,7 @@ const App = () => {
                 <button
                   key={genre.id}
                   onClick={() => handleGenreChange(genre.id)}
-                  className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                  className={`px-4 py-2 rounded-lg font-bold transition-all transform duration-300 hover:scale-110 ${
                     selectedGenreId === genre.id
                       ? 'bg-purple-600 text-white'
                       : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
