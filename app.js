@@ -595,48 +595,87 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
           <i className="fas fa-times"></i>
         </button>
         
-        <div className="bg-gray-900 rounded-lg overflow-hidden shadow-2xl border border-gray-700 flex flex-col h-full">
-          {/* Video Player Area - Floating Look */}
-          <div className="relative bg-black flex-shrink-0 mx-2 md:mx-4 my-2 md:my-4 rounded-lg overflow-hidden md:h-80" style={{ height: '180px', width: 'calc(100% - 16px)', boxShadow: '0 0 30px rgba(168, 85, 247, 0.4)' }}>
-            {loading ? (
-              <div className="text-center h-full flex items-center justify-center">
-                <div>
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
-                  <p className="text-gray-300">Loading player...</p>
+        {/* Scrollable container for floating page effect */}
+        <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-700 overflow-y-auto overflow-x-hidden h-full">
+          {/* Content wrapper - full width */}
+          <div className="w-full max-w-full">
+              {/* Video Player Area - Bigger on PC, Floating Look */}
+              <div 
+                className="relative bg-black mx-2 md:mx-4 my-2 md:my-4 rounded-lg overflow-hidden" 
+                style={{ 
+                  height: window.innerWidth >= 1024 ? '800px' : window.innerWidth >= 768 ? '700px' : '220px',
+                  boxShadow: '0 0 30px rgba(168, 85, 247, 0.4)',
+                  maxWidth: '100%'
+                }}
+              >
+                <div className="w-full h-full">
+                  {loading ? (
+                    <div className="text-center h-full flex items-center justify-center">
+                      <div>
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                        <p className="text-gray-300">Loading player...</p>
+                      </div>
+                    </div>
+                  ) : currentSource ? (
+                    <div className="w-full h-full">
+                      {/* Provider Iframe Embed */}
+                      <iframe
+                        key={`${currentSource.provider}-${selectedSource}`}
+                        src={currentSource.embedUrl || currentSource.url}
+                        width="100%"
+                        height="100%"
+                        frameBorder="0"   
+                        allowFullScreen
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        style={{ display: 'block' }}
+                        onError={(e) => console.error('iframe error:', e)}
+                      ></iframe>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-400 p-8 h-full flex items-center justify-center">
+                      <div>
+                        <i className="fas fa-exclamation-triangle text-3xl mb-4 block text-yellow-500"></i>
+                        <p>No streaming sources found for this movie.</p>
+                        <p className="text-sm mt-2">Use the links below to search for it on other platforms.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            ) : currentSource ? (
-              <div className="w-full h-full">
-                {/* Provider Iframe Embed */}
-                <iframe
-                  key={`${currentSource.provider}-${selectedSource}`}
-                  src={currentSource.embedUrl || currentSource.url}
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"   
-                  allowFullScreen
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  style={{ display: 'block' }}
-                  onError={(e) => console.error('iframe error:', e)}
-                ></iframe>
-              </div>
-            ) : (
-              <div className="text-center text-gray-400 p-8 h-full flex items-center justify-center">
-                <div>
-                  <i className="fas fa-exclamation-triangle text-3xl mb-4 block text-yellow-500"></i>
-                  <p>No streaming sources found for this movie.</p>
-                  <p className="text-sm mt-2">Use the links below to search for it on other platforms.</p>
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Movie Info Section - Responsive Layout */}
-          <div className="p-3 md:p-6 bg-gray-800 flex-1 overflow-y-auto">
-            {/* Title and Info */}
-            <div className="mb-6">
-              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{movie.title}</h1>
-              <p className="text-gray-400 text-xs md:text-sm mb-4">Year: {movie.release_date?.split('-')[0]}</p>
+              {/* Movie Info Section - Responsive Layout, Now part of scrollable content */}
+              <div className="p-3 md:p-6 bg-gray-800">
+                {/* Title and Info with Poster */}
+                <div className="mb-6">
+                  <div className="flex flex-col md:flex-row gap-4 mb-4">
+                    {/* Small Poster - Desktop only, on the left */}
+                    <div className="hidden md:block flex-shrink-0">
+                      <img
+                        src={movie.poster_path ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}` : `https://placehold.co/150x225/333333/FFFFFF?text=${encodeURIComponent(movie.title)}`}
+                        alt={movie.title}
+                        className="rounded-lg shadow-lg border border-purple-500"
+                        style={{ width: '150px', height: 'auto', boxShadow: '0 0 20px rgba(168, 85, 247, 0.4)' }}
+                      />
+                    </div>
+                    
+                    {/* Title and Description Section */}
+                    <div className="flex-1">
+                      <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{movie.title}</h1>
+                      <p className="text-gray-400 text-xs md:text-sm mb-4">Year: {movie.release_date?.split('-')[0]}</p>
+                      
+                      {/* Description - Now next to poster */}
+                      <div className="hidden md:block">
+                        <h3 className="text-sm md:text-lg font-bold text-purple-300 mb-2">About:</h3>
+                        <p className="text-gray-300 text-xs md:text-base leading-relaxed">{movie.overview || 'No description available.'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Description for mobile - below poster area */}
+                  <div className="md:hidden mb-4">
+                    <h3 className="text-sm font-bold text-purple-300 mb-2">About:</h3>
+                    <p className="text-gray-300 text-xs leading-relaxed">{movie.overview || 'No description available.'}</p>
+                  </div>
               
               {/* Quick Info - Compact on mobile */}
               <div className="flex flex-wrap gap-2 md:gap-3 mb-4">
@@ -654,10 +693,7 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
                 </div>
               </div>
 
-              {/* Description */}
-              <h3 className="text-sm md:text-lg font-bold text-purple-300 mb-2">About:</h3>
-              <p className="text-gray-300 text-xs md:text-base leading-relaxed line-clamp-4 md:line-clamp-none">{movie.overview || 'No description available.'}</p>
-            </div>
+                </div>
 
             {/* Streaming Provider Selection */}
             {streamingSources && streamingSources.sources && streamingSources.sources.length > 0 && (
@@ -717,38 +753,39 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
                               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 flex-wrap">
-              <button
-                onClick={() => {
-                  onMarkAsWatched();
-                  setTimeout(() => onClose(), 500);
-                }}
-                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center"
-              >
-                <i className="fas fa-check mr-2"></i> Mark as Watched & Close
-              </button>
-              <button
-                onClick={() => onAddToWatchlist(movie)}
-                className={`font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center ${
-                  isInWatchlist
-                    ? 'bg-pink-600 hover:bg-pink-700 text-white'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
-              >
-                <i className={`${isInWatchlist ? 'fas' : 'far'} fa-heart mr-2`}></i> {isInWatchlist ? 'Remove' : 'Add to Favorites'}
-              </button>
-              <button
-                onClick={onClose}
-                className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center"
-              >
-                <i className="fas fa-times mr-2"></i> Close
-              </button>
+                {/* Action Buttons */}
+                <div className="flex gap-3 flex-wrap">
+                  <button
+                    onClick={() => {
+                      onMarkAsWatched();
+                      setTimeout(() => onClose(), 500);
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center"
+                  >
+                    <i className="fas fa-check mr-2"></i> Mark as Watched & Close
+                  </button>
+                  <button
+                    onClick={() => onAddToWatchlist(movie)}
+                    className={`font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center ${
+                      isInWatchlist
+                        ? 'bg-pink-600 hover:bg-pink-700 text-white'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                  >
+                    <i className={`${isInWatchlist ? 'fas' : 'far'} fa-heart mr-2`}></i> {isInWatchlist ? 'Remove' : 'Add to Favorites'}
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition-all transform duration-300 hover:scale-105 flex items-center"
+                  >
+                    <i className="fas fa-times mr-2"></i> Close
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
   );
 };
 
