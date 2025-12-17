@@ -554,6 +554,16 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
     initPlayer();
   }, [movie]);
 
+  // Prevent background page from scrolling while the floating movie page is open
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow || '';
+    };
+  }, []);
+
   // Get the appropriate source based on provider selection
   const getSourcesByProvider = () => {
     if (!streamingSources || !streamingSources.sources) return [];
