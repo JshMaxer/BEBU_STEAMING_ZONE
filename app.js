@@ -333,7 +333,7 @@ const fetchMoviesApi = async (type, genreId, startYear, endYear, page = 1) => {
   return data; // Return full data object with results and total_pages
 };
 
-// Get streaming sources from VidKing API with VidLink fallback - INTEGRATED WITH TMDB
+// Get streaming sources with VidLink as primary - INTEGRATED WITH TMDB
 const getStreamingSources = async (movieTitle, movieYear, tmdbId) => {
   try {
     // Check if TMDB ID is available
@@ -348,12 +348,12 @@ const getStreamingSources = async (movieTitle, movieYear, tmdbId) => {
       };
     }
 
+    // Generate VidLink embed URL as primary
+    const vidlinkEmbedUrl = buildVidLinkUrl(tmdbId);
+    
     // Generate VidKing embed URL with TMDB ID
     const vidkingEmbedUrl = `https://www.vidking.net/embed/movie/${tmdbId}`;
     const vidkingEmbedUrlWithFeatures = `https://www.vidking.net/embed/movie/${tmdbId}?color=9146ff&autoPlay=false`;
-    
-    // Generate VidLink embed URL as fallback
-    const vidlinkEmbedUrl = buildVidLinkUrl(tmdbId);
 
     // Check if VidKing is online
     const vidkingOnline = await isVidkingOnline();
@@ -363,44 +363,33 @@ const getStreamingSources = async (movieTitle, movieYear, tmdbId) => {
       external: []
     };
 
-    // Add primary source (VidKing if online, VidLink if offline)
+    // Add VidLink as primary source
+    streamingData.sources.push({
+      name: 'VidLink 1080p',
+      url: vidlinkEmbedUrl,
+      embedUrl: vidlinkEmbedUrl,
+      quality: '1080p',
+      type: 'iframe',
+      tmdbId: tmdbId,
+      provider: 'vidlink'
+    });
+    
+    // Add VidKing as backup (if online)
     if (vidkingOnline) {
       streamingData.sources.push({
-        name: 'VidKing 1080p',
+        name: 'VidKing 1080p (Backup)',
         url: vidkingEmbedUrl,
         embedUrl: vidkingEmbedUrlWithFeatures,
         quality: '1080p',
         type: 'iframe',
         tmdbId: tmdbId,
-        provider: 'vidking'
-      });
-      
-      // Add VidLink as backup
-      streamingData.sources.push({
-        name: 'VidLink 1080p (Backup)',
-        url: vidlinkEmbedUrl,
-        embedUrl: vidlinkEmbedUrl,
-        quality: '1080p',
-        type: 'iframe',
-        tmdbId: tmdbId,
-        provider: 'vidlink',
+        provider: 'vidking',
         isBackup: true
       });
       
-      console.log('✅ VidKing is online - added as primary, VidLink as backup');
+      console.log('✅ VidLink is primary, VidKing available as backup');
     } else {
-      // VidKing is offline, use VidLink as primary
-      streamingData.sources.push({
-        name: 'VidLink 1080p',
-        url: vidlinkEmbedUrl,
-        embedUrl: vidlinkEmbedUrl,
-        quality: '1080p',
-        type: 'iframe',
-        tmdbId: tmdbId,
-        provider: 'vidlink'
-      });
-      
-      console.warn('⚠️ VidKing is offline - using VidLink as primary source');
+      console.log('✅ VidLink is primary, VidKing is offline');
     }
 
     streamingData.external = [

@@ -74,10 +74,24 @@ BEBU Streaming Zone has been upgraded from a movie recommendation engine into a 
 
 ## Overview
 
-BEBU Streaming Zone supports dual streaming providers: **VidKing** and **VidLink**. VidKing is the primary provider, offering fast loading and reliable 1080p streaming. VidLink acts as a fallback provider, activating when VidKing is offline and providing additional features like watch progress tracking and player customization.
+BEBU Streaming Zone supports dual streaming providers: **VidLink** and **VidKing**. VidLink is the primary provider, offering full player customization, watch progress tracking, and reliable 1080p streaming. VidKing acts as a backup provider, providing fast loading and reliable content delivery when needed.
 
-### VidKing (Primary Provider)
-VidKing offers:
+### VidLink (Primary Provider)
+VidLink is the default streaming provider and offers:
+- 1080p streaming quality
+- Full player customization
+- Automatic watch progress tracking
+- Player event monitoring
+- External subtitle support
+- Next episode button for TV shows
+
+#### URL Structure
+```
+https://vidlink.pro/movie/{tmdbId}?primaryColor=9D00FF&secondaryColor=5B00CC&icons=default&iconColor=9D00FF&title=true&poster=true&autoplay=false&nextbutton=true
+```
+
+### VidKing (Backup Provider)
+VidKing is available as a backup provider and offers:
 - 1080p streaming quality
 - Fast loading times
 - Reliable content delivery
@@ -87,16 +101,8 @@ VidKing offers:
 https://www.vidking.net/embed/movie/{tmdbId}
 ```
 
-### VidLink (Fallback Provider)
-VidLink activates when VidKing is offline and provides:
-- 1080p streaming quality
-- Full player customization
-- Automatic watch progress tracking
-- Player event monitoring
-- External subtitle support
-- Next episode button for TV shows
-
-#### Player Colors (Neon Purple Theme)
+### Player Colors (Neon Purple Theme)
+VidLink player is customized with:
 ```javascript
 const VIDLINK_PLAYER_CONFIG = {
   primaryColor: '9D00FF',      // Neon Purple
