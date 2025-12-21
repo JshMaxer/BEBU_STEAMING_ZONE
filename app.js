@@ -788,62 +788,165 @@ const VideoPlayer = ({ movie, onClose, onMarkAsWatched, onAddToWatchlist, isInWa
   );
 };
 
-// Navigation Component
-const Navigation = ({ currentView, onViewChange, watchlistCount, onSearch, onWatchlist }) => {
-  const { useState } = React;
-  const [isExpanded, setIsExpanded] = useState(false);
+// Movie Carousel Component
+const MovieCarousel = ({ movies, onMovieClick }) => {
+  const { useRef, useState } = React;
+  const carouselRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const wasDraggingRef = useRef(false);
+  
+  const scrollLeftFunc = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({ left: -400, behavior: 'smooth' });
+    }
+  };
+  
+  const scrollRightFunc = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({ left: 400, behavior: 'smooth' });
+    }
+  };
 
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    wasDraggingRef.current = false;
+    setStartX(e.pageX - carouselRef.current.offsetLeft);
+    setScrollLeft(carouselRef.current.scrollLeft);
+    carouselRef.current.style.cursor = 'grabbing';
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+    if (carouselRef.current) {
+      carouselRef.current.style.cursor = 'grab';
+    }
+    // Reset after a short delay to allow click to register
+    setTimeout(() => {
+      wasDraggingRef.current = false;
+    }, 100);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    if (carouselRef.current) {
+      carouselRef.current.style.cursor = 'grab';
+    }
+    // Reset after a short delay to allow click to register
+    setTimeout(() => {
+      wasDraggingRef.current = false;
+    }, 100);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    wasDraggingRef.current = true;
+    e.preventDefault();
+    const x = e.pageX - carouselRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // Scroll speed multiplier
+    carouselRef.current.scrollLeft = scrollLeft - walk;
+  };
+  
   return (
-    <div className="fixed bottom-8 right-8 z-40 flex flex-col items-end gap-3">
-      {/* Browse Button */}
-      {isExpanded && (
+    <div className="mt-6 md:mt-8 lg:mt-12 relative">
+      <h3 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Related Movies</h3>
+      <div className="relative group">
+        {/* Left Scroll Button */}
         <button
-          onClick={() => {
-            onViewChange('browse');
-            setIsExpanded(false);
+          onClick={scrollLeftFunc}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white bg-opacity-20 backdrop-blur-md flex items-center justify-center text-white hover:bg-opacity-30 transition-all duration-300 shadow-lg opacity-0 group-hover:opacity-100"
+          aria-label="Scroll left"
+        >
+          <i className="fas fa-chevron-left"></i>
+        </button>
+
+        {/* Right Scroll Button */}
+        <button
+          onClick={scrollRightFunc}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white bg-opacity-20 backdrop-blur-md flex items-center justify-center text-white hover:bg-opacity-30 transition-all duration-300 shadow-lg opacity-0 group-hover:opacity-100"
+          aria-label="Scroll right"
+        >
+          <i className="fas fa-chevron-right"></i>
+        </button>
+
+        {/* Scrollable Container */}
+        <div 
+          ref={carouselRef}
+          className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 md:-mx-8 px-4 md:px-8 scroll-smooth cursor-grab active:cursor-grabbing" 
+          style={{ 
+            scrollbarWidth: 'none', 
+            msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch',
+            scrollBehavior: 'smooth',
+            userSelect: 'none'
           }}
-          className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transform transition-all duration-300 hover:scale-110 flex items-center gap-2 whitespace-nowrap"
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          onWheel={(e) => {
+            // Allow horizontal scrolling with mouse wheel
+            if (e.deltaY !== 0) {
+              e.preventDefault();
+              e.currentTarget.scrollLeft += e.deltaY;
+            }
+          }}
         >
-          <i className="fas fa-film"></i> Browse
-        </button>
-      )}
+          {movies.map((movie, index) => (
+            <div
+              key={movie.id}
+              onClick={(e) => {
+                // Prevent click if user was dragging
+                if (!wasDraggingRef.current) {
+                  onMovieClick(movie);
+                }
+              }}
+              className="flex-shrink-0 w-28 sm:w-36 md:w-44 lg:w-48 cursor-pointer transform transition-all duration-300 hover:scale-105 group"
+            >
+              <div className="relative">
+                <img
+                  src={movie.poster_path ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}` : `https://placehold.co/300x450/333333/FFFFFF?text=${encodeURIComponent(movie.title)}`}
+                  alt={movie.title}
+                  className="w-full h-40 sm:h-48 md:h-56 lg:h-64 object-cover rounded-lg shadow-lg"
+                  onError={(e) => { e.target.src = `https://placehold.co/300x450/333333/FFFFFF?text=${encodeURIComponent(movie.title)}`; }}
+                />
+                {index === 0 && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-b-lg"></div>
+                )}
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all duration-300"></div>
+              </div>
+              <p className="mt-2 text-xs md:text-sm font-semibold truncate text-center md:text-left">{movie.title}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
-      {/* Watchlist Button */}
-      {isExpanded && (
-        <button
-          onClick={onWatchlist}
-          className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transform transition-all duration-300 hover:scale-110 flex items-center gap-2 whitespace-nowrap relative"
-        >
-          <i className="fas fa-heart"></i> Watchlist
-          {watchlistCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-              {watchlistCount}
-            </span>
-          )}
-        </button>
-      )}
-
-      {/* Search Button */}
-      {isExpanded && (
-        <button
-          onClick={onSearch}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transform transition-all duration-300 hover:scale-110 flex items-center gap-2 whitespace-nowrap"
-        >
-          <i className="fas fa-search"></i> Search
-        </button>
-      )}
-
-      {/* Toggle Button */}
+// Left Sidebar Component - Circular translucent icons
+const Sidebar = ({ onViewChange, currentView }) => {
+  return (
+    <div className="fixed left-0 top-0 h-full w-16 md:w-20 flex flex-col items-center gap-4 md:gap-5 py-6 md:py-8 z-30 hidden md:flex">
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-4 rounded-full shadow-2xl transform transition-all duration-300 hover:scale-110 w-16 h-16 flex items-center justify-center text-2xl"
-        title="Toggle menu"
+        onClick={() => onViewChange('browse')}
+        className={`w-12 h-12 md:w-14 md:h-14 rounded-full bg-white bg-opacity-10 backdrop-blur-md flex items-center justify-center text-white text-lg md:text-xl hover:bg-opacity-20 transition-all duration-300 shadow-lg ${currentView === 'browse' ? 'bg-opacity-20 ring-2 ring-purple-400' : ''}`}
+        title="Home"
       >
-        <i className={`fas fa-${isExpanded ? 'times' : 'bars'} transition-transform duration-300`}></i>
+        <i className="fas fa-home"></i>
+      </button>
+      <button
+        onClick={() => onViewChange('watchlist')}
+        className={`w-12 h-12 md:w-14 md:h-14 rounded-full bg-white bg-opacity-10 backdrop-blur-md flex items-center justify-center text-white text-lg md:text-xl hover:bg-opacity-20 transition-all duration-300 shadow-lg ${currentView === 'watchlist' ? 'bg-opacity-20 ring-2 ring-purple-400' : ''}`}
+        title="Favorites"
+      >
+        <i className="fas fa-star"></i>
       </button>
     </div>
   );
 };
+
 
 // Search Modal Component
 const SearchModal = ({ isOpen, onClose, onSearch }) => {
@@ -1037,7 +1140,9 @@ const App = () => {
   const [allFetchedMovies, setAllFetchedMovies] = useState([]);
   const [currentFetchPage, setCurrentFetchPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [featuredMovie, setFeaturedMovie] = useState(null);
+  const [relatedMovies, setRelatedMovies] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const currentMonthNum = new Date().getMonth() + 1;
   const currentMonthName = new Date().toLocaleString('en-US', { month: 'long' });
@@ -1147,23 +1252,6 @@ const App = () => {
     initializeApp();
   }, []);
 
-  // Handle scroll to show/hide back to top button
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 300) {
-        setShowScrollTop(true);
-      } else {
-        setShowScrollTop(false);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   const handleGenreChange = (genreId) => {
     setSelectedGenreId(genreId);
@@ -1200,68 +1288,320 @@ const App = () => {
   const handleSearchResult = (movie) => {
     setSelectedMovie(movie);
     setCurrentView('browse');
+    setFeaturedMovie(movie);
+  };
+
+  // Helper function to get genre names from genre_ids
+  const getGenreNames = (genreIds) => {
+    if (!genreIds || !Array.isArray(genreIds) || genreIds.length === 0) return [];
+    return genreIds
+      .map(id => genres.find(g => g.id === id)?.name)
+      .filter(name => name !== undefined)
+      .slice(0, 2); // Get first 2 genres
+  };
+
+  // Set featured movie when movies load
+  useEffect(() => {
+    if (movies.length > 0 && !featuredMovie) {
+      setFeaturedMovie(movies[0]);
+      setRelatedMovies(movies.slice(1, 11));
+    }
+  }, [movies]);
+
+  const handleSearch = () => {
+    if (searchTerm.trim()) {
+      setShowSearchModal(true);
+    }
+  };
+
+  const handleFeaturedMovieChange = (movie) => {
+    setFeaturedMovie(movie);
+    // Update related movies (exclude the featured one)
+    const filtered = movies.filter(m => m.id !== movie.id).slice(0, 10);
+    setRelatedMovies(filtered);
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white" style={{ backgroundImage: 'url(BG.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
-      {/* Hero Section with Overlay */}
-      <div className="relative bg-black bg-opacity-40 flex items-center justify-center border-b-4 border-purple-600 p-4" style={{ minHeight: 'fit-content' }}>
-        <div className="w-full border-4 border-purple-500 rounded-2xl p-8 md:p-12 bg-black bg-opacity-60 backdrop-blur-sm shadow-2xl" style={{ boxShadow: '0 0 40px rgba(168, 85, 247, 0.6), inset 0 0 20px rgba(168, 85, 247, 0.2)' }}>
-          {/* Logo and Tagline */}
-          <div className="text-center mb-8 pb-8 border-b-2 border-purple-500">
-            <img src="Logo no BG.png" alt="BEBU's Logo" className="h-40 md:h-56 mx-auto mb-6 drop-shadow-2xl" />
-            <p className="text-gray-300 text-lg md:text-2xl font-light leading-relaxed">
-              Your Ultimate Movie Experience - Discover, Watch & Manage Your Collection
-            </p>
-          </div>
+    <div className="min-h-screen w-full text-white relative overflow-x-hidden" style={{ 
+      background: 'linear-gradient(135deg, #1a0b2e 0%, #16213e 50%, #0f3460 100%)',
+      backgroundAttachment: 'fixed'
+    }}>
+      {/* Left Sidebar */}
+      <Sidebar onViewChange={setCurrentView} currentView={currentView} />
 
-          {/* December's Pick and Genres */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Left Side - December's Pick */}
-            <div>
-              <h2 className="text-3xl font-bold mb-2">{currentMonthName}'s Pick: {currentMonthGenreName}</h2>
-              <p className="text-gray-400 text-lg italic">"{currentMonthGenreReason}"</p>
-            </div>
+      {/* Top Bar */}
+      <div className="fixed top-0 right-0 left-0 md:left-20 h-20 flex items-center justify-between gap-2 md:gap-4 px-2 md:px-8 z-20 bg-gradient-to-b from-gray-900 via-gray-900 to-transparent">
+        {/* Genre Selector */}
+        <div className="flex-shrink-0">
+          <select
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === 'monthly-genre-selection') {
+                const monthlyGenreName = MONTH_GENRE_MAP[currentMonthNum];
+                const monthlyGenre = genres.find(g => g.name === monthlyGenreName);
+                if (monthlyGenre) {
+                  setSelectedGenreId(monthlyGenre.id);
+                  setSelectedMovieType('monthly');
+                  getMovies('monthly', monthlyGenre.id, startYear, endYear);
+                }
+              } else if (value === 'upcoming-movies') {
+                setSelectedMovieType('upcoming');
+                getMovies('upcoming', null, startYear, endYear);
+              } else if (value) {
+                handleGenreChange(parseInt(value));
+              }
+            }}
+            value={selectedMovieType === 'monthly' ? 'monthly-genre-selection' : (selectedMovieType === 'upcoming' ? 'upcoming-movies' : selectedGenreId)}
+            className="px-3 md:px-4 py-2 bg-white bg-opacity-10 backdrop-blur-md rounded-full text-white text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 transition-all duration-300 max-w-[120px] md:max-w-none"
+            disabled={loading || error}
+          >
+            <option value="">All Genres</option>
+            <option value="monthly-genre-selection">Based on Month</option>
+            <option value="upcoming-movies">Upcoming</option>
+            {genres.map((genre) => (
+              <option key={genre.id} value={genre.id}>
+                {genre.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            {/* Right Side - Genre Buttons */}
-            <div className="flex flex-wrap gap-2 items-start content-start">
-              {genres.map((genre) => (
-                <button
-                  key={genre.id}
-                  onClick={() => handleGenreChange(genre.id)}
-                  className={`px-4 py-2 rounded-lg font-bold transition-all transform duration-300 hover:scale-110 ${
-                    selectedGenreId === genre.id
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
-                >
-                  {genre.name}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Search Bar */}
+        <div className="relative flex-1 max-w-md ml-2 md:ml-0">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            placeholder="Search for Movie"
+            className="w-full px-3 md:px-6 py-2 md:py-3 pl-8 md:pl-12 bg-white bg-opacity-10 backdrop-blur-md rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 transition-all duration-300 text-xs md:text-sm lg:text-base"
+          />
+          <i className="fas fa-search absolute left-2 md:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm md:text-base"></i>
         </div>
       </div>
 
-      <Navigation 
-        currentView={currentView} 
-        onViewChange={setCurrentView} 
-        watchlistCount={watchlist.length}
-        onSearch={() => setShowSearchModal(true)}
-        onWatchlist={() => setShowWatchlistModal(true)}
-      />
+      {/* Main Content Area */}
+      <div className="ml-0 md:ml-20 mt-20 p-4 md:p-6 lg:p-8">
+        {currentView === 'browse' && (
+          <>
+            {/* Featured Movie Display - Split Layout */}
+            {featuredMovie && !loading && (
+              <div className="mb-8 md:mb-12">
+                <div className="flex flex-col lg:flex-row gap-6 md:gap-8 items-start lg:items-center">
+                  {/* Left Section - Movie Info */}
+                  <div className="flex-1 lg:max-w-2xl w-full">
+                    {/* Date and Genre Tags */}
+                    <div className="flex gap-2 md:gap-3 mb-4 flex-wrap">
+                      {featuredMovie.release_date && (
+                        <span className="px-3 md:px-4 py-1.5 md:py-2 bg-white bg-opacity-10 backdrop-blur-md rounded-full text-xs md:text-sm whitespace-nowrap">
+                          {new Date(featuredMovie.release_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+                      {getGenreNames(featuredMovie.genre_ids).map((genreName, idx) => (
+                        <span key={idx} className="px-3 md:px-4 py-1.5 md:py-2 bg-white bg-opacity-10 backdrop-blur-md rounded-full text-xs md:text-sm whitespace-nowrap">
+                          {genreName}
+                        </span>
+                      ))}
+                    </div>
 
-      {/* Floating Back to Top Button */}
-      {showScrollTop && (
-        <button
-          onClick={scrollToTop}
-          className="fixed bottom-8 left-8 z-40 bg-purple-600 hover:bg-purple-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110"
-          title="Back to top"
-        >
-          <i className="fas fa-arrow-up text-xl"></i>
-        </button>
-      )}
+                    {/* Movie Title */}
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-3 md:mb-4 leading-tight" style={{ 
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 800,
+                      lineHeight: '1.1'
+                    }}>
+                      {featuredMovie.title}
+                    </h1>
+                    {featuredMovie.release_date && (
+                      <h2 className="text-lg md:text-xl lg:text-2xl text-gray-300 mb-4 md:mb-6">
+                        ({featuredMovie.release_date.split('-')[0]})
+                      </h2>
+                    )}
 
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mb-6 md:mb-8">
+                      <button
+                        onClick={() => handlePlayMovie(featuredMovie)}
+                        className="bg-black text-white px-6 md:px-8 py-3 md:py-4 rounded-lg font-bold text-base md:text-lg flex items-center justify-center gap-2 md:gap-3 hover:bg-gray-900 transition-all duration-300 transform hover:scale-105"
+                      >
+                        <i className="fas fa-play"></i>
+                        <span>Watch now</span>
+                      </button>
+                      <button
+                        className="border-2 border-white text-white px-6 md:px-8 py-3 md:py-4 rounded-lg font-bold text-base md:text-lg hover:bg-white hover:bg-opacity-10 transition-all duration-300"
+                      >
+                        Trailer
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Section - Large Poster */}
+                  <div className="flex-shrink-0 w-full lg:w-1/2 lg:pl-4">
+                    <img
+                      src={featuredMovie.backdrop_path ? `${TMDB_BACKDROP_URL}${featuredMovie.backdrop_path}` : featuredMovie.poster_path ? `${TMDB_IMAGE_BASE_URL}${featuredMovie.poster_path}` : `https://placehold.co/800x1200/333333/FFFFFF?text=${encodeURIComponent(featuredMovie.title)}`}
+                      alt={featuredMovie.title}
+                      className="w-full h-auto rounded-lg shadow-2xl"
+                      style={{ 
+                        maxHeight: '70vh', 
+                        objectFit: 'cover',
+                        width: '100%'
+                      }}
+                      onError={(e) => { e.target.src = `https://placehold.co/800x1200/333333/FFFFFF?text=${encodeURIComponent(featuredMovie.title)}`; }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Horizontal Scrollable Carousel - Related Movies */}
+            {relatedMovies.length > 0 && (
+              <MovieCarousel 
+                movies={relatedMovies} 
+                onMovieClick={handleFeaturedMovieChange}
+              />
+            )}
+
+            {/* Movies Grid - All Movies */}
+            {!loading && !error && movies.length > 0 && (
+              <div className="mt-8 md:mt-12">
+                <h3 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8">All Movies</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+                  {movies.filter(movie => movie.id !== featuredMovie?.id).map((movie) => (
+                    <div
+                      key={movie.id}
+                      className="bg-gray-800 rounded-xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-purple-500/40 border border-gray-700 relative flex flex-col h-full"
+                    >
+                      {/* Movie Poster */}
+                      <div className="relative group flex-shrink-0">
+                        <img
+                          src={movie.poster_path ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}` : `https://placehold.co/500x750/333333/FFFFFF?text=No+Image`}
+                          alt={movie.title}
+                          className="w-full h-64 object-cover object-center"
+                          onError={(e) => { e.target.src = `https://placehold.co/500x750/333333/FFFFFF?text=No+Image`; }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                          <button
+                            onClick={() => handlePlayMovie(movie)}
+                            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transform transition-all duration-300 hover:scale-110"
+                          >
+                            <i className="fas fa-play mr-2"></i> Play Now
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Movie Info */}
+                      <div className="p-4 flex flex-col flex-grow">
+                        <h2 className="text-lg font-bold text-white mb-2 line-clamp-2">{movie.title}</h2>
+                        <p className="text-gray-400 text-xs mb-3 line-clamp-2 flex-grow">{movie.overview || 'No description available.'}</p>
+                        
+                        {/* Rating and Date */}
+                        <div className="flex justify-between items-center mb-3 flex-shrink-0">
+                          <span className="text-yellow-400 font-semibold text-sm flex items-center">
+                            <i className="fas fa-star mr-1"></i>
+                            {movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}/10
+                          </span>
+                          <span className="text-gray-400 text-xs">{movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</span>
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => handlePlayMovie(movie)}
+                            className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-2 px-3 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105 text-xs md:text-sm"
+                          >
+                            <i className="fas fa-play mr-1"></i> Watch
+                          </button>
+                          <button
+                            onClick={() => handleAddToWatchlist(movie)}
+                            className={`px-3 py-2 rounded-lg font-bold transition-all transform duration-300 hover:scale-110 text-sm ${
+                              LocalStorage.isInWatchlist(movie.id)
+                                ? 'bg-pink-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                            }`}
+                            title={LocalStorage.isInWatchlist(movie.id) ? 'Remove from watchlist' : 'Add to watchlist'}
+                          >
+                            <i className={`${LocalStorage.isInWatchlist(movie.id) ? 'fas' : 'far'} fa-heart`}></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Load More Button */}
+                {allFetchedMovies.length > movies.length && (
+                  <div className="mt-8 flex justify-center">
+                    <button
+                      onClick={handleLoadMore}
+                      disabled={isLoadingMore}
+                      className={`px-8 py-3 font-bold rounded-lg transition-all duration-300 text-lg ${
+                        isLoadingMore
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          : 'bg-purple-600 text-white hover:bg-purple-700 transform hover:scale-105'
+                      }`}
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin mr-2"></i> Loading...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-arrow-down mr-2"></i> Load More Movies
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Loading State */}
+            {loading && (
+              <div className="flex items-center justify-center h-96">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                  <p className="text-purple-300 text-xl">Loading movies...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="text-center py-12">
+                <p className="text-red-500 text-lg bg-red-900 bg-opacity-30 rounded-lg p-4 border border-red-700 inline-block">
+                  {error}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Watchlist View */}
+        {currentView === 'watchlist' && (
+          <div className="p-8">
+            <h2 className="text-4xl font-bold mb-8">My Watchlist</h2>
+            {watchlist.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {watchlist.map((movie) => (
+                  <MovieCard
+                    key={movie.id}
+                    movie={movie}
+                    onPlay={handlePlayMovie}
+                    onAddToWatchlist={handleAddToWatchlist}
+                    isInWatchlist={true}
+                    isWatched={LocalStorage.isWatched(movie.id)}
+                    compact={true}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-gray-400 text-lg">No movies in your watchlist. Start adding some!</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Video Player Modal */}
       {selectedMovie && (
         <VideoPlayer
           movie={selectedMovie}
@@ -1275,73 +1615,16 @@ const App = () => {
         />
       )}
 
-      <WatchlistModal
-        isOpen={showWatchlistModal}
-        onClose={() => setShowWatchlistModal(false)}
-        watchlist={watchlist}
-        onPlay={handlePlayMovie}
-        onAddToWatchlist={handleAddToWatchlist}
-      />
-
+      {/* Search Modal */}
       <SearchModal
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
-        onSearch={handleSearchResult}
+        onSearch={(movie) => {
+          handleSearchResult(movie);
+          setFeaturedMovie(movie);
+          setCurrentView('browse');
+        }}
       />
-
-      <main className="p-4 sm:p-8 w-full">
-        <div className="w-full">
-
-          {loading && (
-            <p className="text-center text-purple-300 text-xl animate-pulse">Loading movies...</p>
-          )}
-
-          {error && (
-            <p className="text-center text-red-500 text-lg bg-red-900 bg-opacity-30 rounded-lg p-4 border border-red-700">
-              {error}
-            </p>
-          )}
-
-          {!loading && !error && movies.length > 0 && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
-                {movies.map((movie) => (
-                  <MovieCard
-                    key={movie.id}
-                    movie={movie}
-                    onPlay={handlePlayMovie}
-                    onAddToWatchlist={handleAddToWatchlist}
-                    isInWatchlist={LocalStorage.isInWatchlist(movie.id)}
-                    isWatched={LocalStorage.isWatched(movie.id)}
-                  />
-                ))}
-              </div>
-
-              {true && (
-                <div className="mt-12 flex justify-center">
-                  <button
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                    className={`px-8 py-3 font-bold rounded-lg transition-all duration-300 text-lg ${
-                      isLoadingMore
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-purple-600 text-white hover:bg-purple-700'
-                    }`}
-                  >
-                    {isLoadingMore ? 'Loading...' : 'Load More Movies'}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </main>
-
-      <footer className="mt-12 p-8 text-center text-gray-500 text-sm border-t border-gray-800">
-        <p className="mb-2">BEBU'S STREAMING ZONE - Your Ultimate Movie Experience</p>
-        <p>Powered by TMDB API | Integrated with VidKing Streaming Services</p>
-        <p className="mt-4">Created by JshMaxer. All rights reserved.</p>
-      </footer>
     </div>
   );
 };

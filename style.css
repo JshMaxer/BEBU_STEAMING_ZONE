@@ -8,7 +8,9 @@ body {
     padding: 0;
     /* New: Apply background gradient and min-height to body */
     min-height: 100vh;
-    background-image: linear-gradient(to bottom right, #1a202c, #2d3748); /* Equivalent to from-gray-900 to-gray-800 */
+    background: linear-gradient(135deg, #1a0b2e 0%, #16213e 50%, #0f3460 100%);
+    background-attachment: fixed;
+    overflow-x: hidden;
 }
 
 /* Custom drop shadow for the title */
@@ -19,11 +21,8 @@ body {
 /* Basic styling for the root element to ensure it takes full height */
 /* Removed background and min-h-screen from here as it's now on body */
 #root {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start; /* Align content to the top */
-    width: 100%; /* Ensure root takes full width */
+    width: 100%;
+    min-height: 100vh;
 }
 
 /* Ensure images within cards are responsive */
@@ -209,6 +208,22 @@ button:active:not(:disabled) {
 
 ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #9333ea 0%, #db2777 100%);
+}
+
+/* Hide scrollbar for horizontal carousel */
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Backdrop blur support */
+.backdrop-blur-md {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 /* Loading spinner */
