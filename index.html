@@ -321,20 +321,208 @@ footer{padding:52px 6% 36px;border-top:1px solid var(--brd);margin-top:56px}
 .fade-in{animation:fadeIn .32s var(--ease) both}
 @keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
-/* ── RESPONSIVE ── */
-@media(max-width:1100px){.card{width:142px}.card-img{height:214px}}
-@media(max-width:768px){
-  .nav-links,.srch-wrap{display:none}
-  .nav-hbg{display:flex}
-  .hero{height:76vh;max-height:600px}.hero-content{padding:0 5% 70px;max-width:100%}
-  .det-grid{grid-template-columns:1fr;margin-top:-70px;text-align:center}
-  .det-poster{width:120px;margin:0 auto}.det-genres,.det-meta,.det-actions,.det-crew{justify-content:center}
-  .det-overview{margin:0 auto 24px}
-  .watch-info{grid-template-columns:1fr}
-  .row-btn{display:none}
+/* ══════════════════════════════════════════════
+   RESPONSIVE — TABLET
+══════════════════════════════════════════════ */
+@media(max-width:1100px){
+  .card{width:142px}
+  .card-img{height:214px}
 }
-@media(max-width:520px){.card{width:110px}.card-img{height:166px}.hero-content{padding:0 4% 64px}.hero-desc{-webkit-line-clamp:2}}
-@media(max-width:380px){.card{width:98px}.card-img{height:148px}}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤768px)
+══════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* NAV */
+  .nav-links{display:none}
+  .srch-wrap{display:none}            /* hidden from nav bar — lives in drawer instead */
+  .nav-hbg{display:flex;margin-left:auto}
+
+  /* DRAWER — full-width search inside it */
+  #drawer-panel{width:100%;max-width:320px}
+  .drawer-search-wrap{position:relative;padding:12px 16px 8px;border-bottom:1px solid var(--brd)}
+  .drawer-search-wrap svg{position:absolute;left:28px;top:50%;transform:translateY(-50%);color:var(--txt3);pointer-events:none;z-index:1}
+  #drawer-srch{
+    width:100%;background:rgba(255,255,255,.07);border:1px solid var(--brd);
+    border-radius:50px;padding:9px 14px 9px 36px;
+    color:var(--txt);font-family:'Outfit',sans-serif;font-size:.85rem;
+    outline:none;transition:border-color .2s;
+  }
+  #drawer-srch:focus{border-color:var(--red);background:rgba(232,19,58,.06)}
+  #drawer-sdrop{background:var(--bg3);border-radius:10px;margin:8px 0 0;overflow:hidden;display:none}
+  #drawer-sdrop.show{display:block}
+  .dsd-row{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--brd);transition:background .15s}
+  .dsd-row:last-child{border:none}
+  .dsd-row:hover,.dsd-row:active{background:rgba(232,19,58,.08)}
+  .dsd-img{width:34px;height:50px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--bg2)}
+  .dsd-title{font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dsd-meta{font-size:.68rem;color:var(--txt2)}
+
+  /* HERO */
+  .hero{height:72vh;min-height:420px;max-height:560px}
+  .hero-ovl{background:
+    linear-gradient(to top,rgba(8,8,14,1) 0%,rgba(8,8,14,.6) 45%,rgba(8,8,14,.15) 100%),
+    linear-gradient(to right,rgba(8,8,14,.75) 0%,transparent 70%)}
+  .hero-content{
+    padding:0 5% 68px;max-width:100%;
+    align-items:flex-end;
+  }
+  .hero-title{font-size:clamp(1.9rem,7vw,3rem);margin-bottom:8px}
+  .hero-desc{-webkit-line-clamp:2;margin-bottom:16px;font-size:.82rem}
+  .hero-stats{gap:10px;font-size:.78rem;margin-bottom:8px}
+  .hero-btns{gap:8px}
+  .hero-btns .btn{padding:9px 16px;font-size:.8rem}
+  .hero-dots{bottom:28px;right:5%}
+
+  /* SECTIONS */
+  .section{padding:20px 4%}
+  .pg-hd{padding:44px 5% 14px}
+  .pg-title{font-size:clamp(1.6rem,6vw,2.4rem)}
+  .filters{padding:0 5% 16px;gap:6px}
+  .fpill{padding:5px 13px;font-size:.74rem}
+
+  /* CARDS */
+  .card{width:120px}
+  .card-img{height:180px}
+  .card-name{font-size:.7rem}
+  .card-wide{width:200px}
+  .card-wide .card-img{height:115px}
+
+  /* GRID */
+  .grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+  .grid .card-img{height:166px}
+
+  /* TOP-10 */
+  .t10-wrap{width:155px}
+  .t10-num{font-size:4.2rem;width:48px}
+  .t10-card{width:100px}
+  .t10-img{height:150px}
+
+  /* DETAIL PAGE */
+  .det-hero{height:42vh;min-height:220px;max-height:340px}
+  .det-hero-ovl{
+    background:
+      linear-gradient(to top,rgba(8,8,14,1) 0%,rgba(8,8,14,.7) 40%,rgba(8,8,14,.2) 100%),
+      linear-gradient(to right,rgba(8,8,14,.5) 0%,transparent 80%)
+  }
+  .det-back{top:calc(var(--nav) + 8px);left:4%;padding:6px 12px;font-size:.76rem}
+  .det-body{padding:0 4%}
+  .det-grid{
+    grid-template-columns:1fr;
+    margin-top:-60px;
+    gap:16px;
+  }
+  /* Poster + info side by side on mobile */
+  .det-grid > div:first-child{
+    display:flex;
+    justify-content:center;
+  }
+  .det-poster{width:110px;border-radius:10px}
+  .det-title{font-size:clamp(1.6rem,6vw,2.6rem);text-align:left}
+  .det-genres,.det-meta,.det-actions,.det-crew{justify-content:flex-start}
+  .det-overview{margin:0 0 20px;text-align:left;max-width:100%}
+  .det-tagline{text-align:left}
+  .rating-ring{width:40px;height:40px;font-size:.78rem}
+  .det-mi{font-size:.78rem}
+
+  /* Layout shift: poster left, title/info right */
+  .det-grid{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start}
+  .det-grid > div:first-child{flex-shrink:0;margin-right:14px}
+  .det-grid > div:last-child{flex:1;min-width:0}
+
+  /* CAST */
+  .cast-card{width:68px}
+  .cast-photo{width:58px;height:58px}
+
+  /* EPISODES */
+  .ep-grid{grid-template-columns:1fr;gap:8px}
+  .ep-card{padding:9px}
+  .ep-thumb{width:80px;height:46px}
+  .ep-desc{display:none}  /* hide long description on mobile to save space */
+  .ep-section{padding:16px 4%}
+
+  /* WATCH */
+  .watch-bar{padding:10px 4%;gap:10px}
+  .watch-title{font-size:1.15rem}
+  .watch-info{grid-template-columns:1fr;padding:16px 4%}
+
+  /* GENRE GRID */
+  .genre-grid{
+    grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+    gap:9px;padding:0 4% 20px
+  }
+  .genre-chip{padding:16px 12px}
+  .genre-ico{font-size:1.5rem}
+  .genre-name{font-size:.82rem}
+
+  /* FOOTER */
+  footer{padding:36px 5% 28px;margin-top:40px}
+  .ft-nav{gap:14px}
+
+  /* TOASTS */
+  #toasts{right:12px;bottom:16px}
+  .toast{max-width:calc(100vw - 24px);font-size:.78rem}
+
+  /* SEARCH DROP — full width on mobile */
+  #sdrop{right:auto;left:0;width:calc(100vw - 32px);max-width:340px}
+
+  /* REC REMOVE always visible on touch */
+  .rec-remove{opacity:0.85!important}
+
+  /* SCROLL TOP bottom clearance */
+  #s2t{bottom:16px;right:14px;width:38px;height:38px}
+}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE — SMALL MOBILE (≤520px)
+══════════════════════════════════════════════ */
+@media(max-width:520px){
+  :root{--nav:58px}
+  .logo{font-size:1.25rem}
+
+  .card{width:102px}
+  .card-img{height:154px}
+  .card-wide{width:175px}
+  .card-wide .card-img{height:100px}
+  .card-badge{font-size:.48rem;padding:2px 5px}
+  .card-qual{font-size:.44rem;padding:1px 5px}
+
+  .grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+  .grid .card-img{height:146px}
+
+  .hero{height:68vh;min-height:380px}
+  .hero-content{padding:0 4% 60px}
+  .hero-title{font-size:clamp(1.7rem,8vw,2.6rem)}
+  .hero-btns .btn{padding:8px 14px;font-size:.76rem;gap:5px}
+
+  .det-hero{height:36vh;min-height:180px}
+  .det-poster{width:88px}
+  .det-title{font-size:clamp(1.4rem,7vw,2.2rem)}
+  .det-genres{gap:4px}
+  .genre-pill{font-size:.62rem;padding:2px 8px}
+  .det-actions .btn{padding:8px 14px;font-size:.77rem}
+
+  .pg-hd{padding:38px 4% 12px}
+  .section{padding:16px 4%}
+  .ep-thumb{width:68px;height:40px}
+
+  .tm-inner{width:96%;border-radius:10px}
+  .tm-cls{top:-38px;width:30px;height:30px;font-size:.9rem}
+
+  footer{padding:28px 4% 24px}
+}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE — TINY (≤380px)
+══════════════════════════════════════════════ */
+@media(max-width:380px){
+  .card{width:90px}
+  .card-img{height:136px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:7px}
+  .grid .card-img{height:130px}
+  .hero{height:65vh}
+  .det-poster{width:76px}
+}
 @media(min-width:1600px){.card{width:172px}.card-img{height:258px}}
 /* ── QUALITY BADGES ── */
 .card-qual{
@@ -407,6 +595,13 @@ footer{padding:52px 6% 36px;border-top:1px solid var(--brd);margin-top:56px}
   <div id="drawer-bg"></div>
   <div id="drawer-panel">
     <span class="drawer-logo">BEBU_STREAMING</span>
+    <!-- Mobile search inside drawer -->
+    <div class="drawer-search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="drawer-srch" type="text" placeholder="Search movies, shows…" autocomplete="off"
+        onkeydown="if(event.key==='Enter'){go('search',{query:this.value.trim()});closeDrawer()}"/>
+      <div id="drawer-sdrop"></div>
+    </div>
     <div id="drawer-links"></div>
   </div>
 </div>
@@ -449,6 +644,7 @@ const ST = {
   season: 1, ep: 1,
   query: '',
   genre: null, genreName: '',
+  _navStack: [],   // full history stack — each entry is a complete state snapshot
   favIds: new Set(lsGet('bsz-fids', [])),
   favData: lsGet('bsz-fdat', []),
   recent:  lsGet('bsz-rec',  []),
@@ -648,7 +844,21 @@ const PAGES = [
    NAVIGATION
 ═══════════════════════════════════════════════ */
 function go(page, opts = {}) {
-  ST._prevPage = ST.page; // track for back button
+  // Save current state to stack before navigating (max 30 deep)
+  const snap = {
+    page: ST.page, id: ST.id, mediaType: ST.mediaType,
+    season: ST.season, ep: ST.ep, query: ST.query,
+    genre: ST.genre, genreName: ST.genreName,
+  };
+  // Don't push duplicate consecutive entries
+  const last = ST._navStack[ST._navStack.length - 1];
+  const isDup = last && last.page === snap.page && last.id === snap.id;
+  if (!isDup) {
+    ST._navStack.push(snap);
+    if (ST._navStack.length > 30) ST._navStack.shift();
+  }
+
+  // Apply new state
   ST.page = page;
   if (opts.id        !== undefined) ST.id        = +opts.id;
   if (opts.mediaType !== undefined) ST.mediaType = opts.mediaType;
@@ -667,6 +877,31 @@ function go(page, opts = {}) {
   renderPage();
 }
 window.go = go;
+
+function goBack() {
+  // Pop the last entry off the stack and restore it
+  const prev = ST._navStack.pop();
+  if (!prev) { go('home'); return; }
+
+  // Restore state without pushing to stack again
+  ST.page      = prev.page;
+  ST.id        = prev.id;
+  ST.mediaType = prev.mediaType;
+  ST.season    = prev.season;
+  ST.ep        = prev.ep;
+  ST.query     = prev.query;
+  ST.genre     = prev.genre;
+  ST.genreName = prev.genreName;
+
+  clearHeroTimer();
+  closeDrop();
+  closeDrawer();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.title = pageTitles[ST.page] || 'BEBU Streaming Zone';
+  renderNav();
+  renderPage();
+}
+window.goBack = goBack;
 
 const pageTitles = {
   home:'BEBU Streaming Zone', movies:'Movies · BEBU', tv:'TV Shows · BEBU',
@@ -703,7 +938,14 @@ window.addEventListener('scroll', () => {
 document.getElementById('s2t').onclick = () => window.scrollTo({ top:0, behavior:'smooth' });
 
 function openDrawer()  { document.getElementById('drawer').classList.add('open'); }
-function closeDrawer() { document.getElementById('drawer').classList.remove('open'); }
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  // clear drawer search
+  const di = document.getElementById('drawer-srch');
+  const dd = document.getElementById('drawer-sdrop');
+  if (di) di.value = '';
+  if (dd) { dd.classList.remove('show'); dd.innerHTML = ''; }
+}
 window.openDrawer = openDrawer;
 window.closeDrawer = closeDrawer;
 
@@ -762,6 +1004,45 @@ function showDrop(items, q) {
 }
 function closeDrop() { document.getElementById('sdrop').classList.remove('show'); }
 window.closeDrop = closeDrop;
+
+/* ── DRAWER SEARCH (mobile) ── */
+(function setupDrawerSearch() {
+  const inp = document.getElementById('drawer-srch');
+  const drop = document.getElementById('drawer-sdrop');
+  if (!inp || !drop) return;
+  let dt;
+  inp.addEventListener('input', () => {
+    clearTimeout(dt);
+    const q = inp.value.trim();
+    if (!q) { drop.classList.remove('show'); drop.innerHTML = ''; return; }
+    dt = setTimeout(async () => {
+      if (q.length < 2) return;
+      try {
+        const d = await A.search(q, 1);
+        const items = d.results
+          .filter(i => i.media_type !== 'person' && i.poster_path && (i.title || i.name))
+          .slice(0, 5);
+        if (!items.length) { drop.classList.remove('show'); return; }
+        drop.innerHTML = items.map(i => {
+          const t = mtype(i); regItem({ ...i, media_type: t });
+          return `<div class="dsd-row" onclick="go('detail',{id:${i.id},mediaType:'${t}'});closeDrawer()">
+            <img class="dsd-img" src="${img.poster(i.poster_path,'w92')}" loading="lazy"
+                 onerror="this.src='https://placehold.co/92x138/181826/555?text=?'"/>
+            <div style="min-width:0">
+              <div class="dsd-title">${title(i)}</div>
+              <div class="dsd-meta">${year(date(i))||''}${i.vote_average ? ` · ⭐ ${rating(i.vote_average)}` : ''}</div>
+            </div>
+          </div>`;
+        }).join('') +
+        `<div class="dsd-row" style="justify-content:center;color:var(--red);font-size:.8rem;font-weight:600"
+              onclick="go('search',{query:'${q.replace(/'/g,"\\'")}'})" ;closeDrawer()>
+           See all results →
+        </div>`;
+        drop.classList.add('show');
+      } catch {}
+    }, 380);
+  });
+})();
 
 /* ═══════════════════════════════════════════════
    QUALITY HELPER
@@ -1104,7 +1385,7 @@ function ftHTML() {
   <div class="ft-nav">${PAGES.map(p=>`<a onclick="go('${p.id}')">${p.label}</a>`).join('')}</div>
   <div class="ft-copy">BEBU Streaming Zone is a premium streaming platform powered by TMDB for metadata and Vidking for video playback.
   All content rights belong to their respective owners. For personal and educational use only.
-  &copy; ${new Date().getFullYear()} BEBU Streaming Zone with love for my Bebu!.</div>
+  &copy; ${new Date().getFullYear()} BEBU Streaming Zone — Joshua Cambal.</div>
 </footer>`;
 }
 
@@ -1118,7 +1399,7 @@ function errorState(msg, goBack = false) {
   return `<div class="empty-state">
     <div class="ico">⚠️</div><h3>Something went wrong</h3><p>${msg}</p>
     <div style="display:flex;gap:10px;margin-top:22px;justify-content:center;flex-wrap:wrap">
-      ${goBack ? `<button class="btn btn-out btn-sm" onclick="history.back()">Go Back</button>` : ''}
+      ${goBack ? `<button class="btn btn-out btn-sm" onclick="goBack()">Go Back</button>` : ''}
       <button class="btn btn-red btn-sm" onclick="go('home')">Home</button>
     </div>
   </div>`;
@@ -1394,7 +1675,7 @@ async function pageGenreResults() {
   main.innerHTML = `
 <div class="fade-in">
   <div class="pg-hd">
-    <button class="btn btn-out btn-sm" onclick="go('genres')" style="margin-bottom:14px">${SVG.chL} Genres</button>
+    <button class="btn btn-out btn-sm" onclick="goBack()" style="margin-bottom:14px">${SVG.chL} Back</button>
     <div class="pg-title">${GICONS[genre]||'🎬'} ${genreName}</div>
     <div class="pg-sub">Browse ${genreName} movies and shows</div>
   </div>
@@ -1533,7 +1814,7 @@ async function pageDetail() {
   <div class="det-hero">
     ${bd ? `<img src="${bd}" alt="${title(det).replace(/"/g,'')}"/>` : `<div style="background:var(--bg2);height:100%"></div>`}
     <div class="det-hero-ovl"></div>
-    <button class="det-back" onclick="ST._prevPage?go(ST._prevPage):go('home')">
+    <button class="det-back" onclick="goBack()">
       ${SVG.chL} Back
     </button>
   </div>
@@ -1669,7 +1950,7 @@ async function pageWatch() {
     main.innerHTML = `
 <div>
   <div class="watch-bar">
-    <button class="btn btn-out btn-sm" onclick="ST._prevPage?go(ST._prevPage):go('detail',{id:${id},mediaType:'${t}'})">
+    <button class="btn btn-out btn-sm" onclick="goBack()">
       ${SVG.chL} Back
     </button>
     <div style="flex:1;min-width:0">
@@ -1793,7 +2074,14 @@ function renderPage() {
     if (document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
 
     // Navigation shortcuts
-    if (key === 'Escape') { closeTrailer(); closeDrawer(); return; }
+    if (key === 'Escape') {
+      closeTrailer(); closeDrawer();
+      // On detail/watch page, Escape also goes back
+      if ((ST.page === 'detail' || ST.page === 'watch') && !document.getElementById('tmodal').classList.contains('open')) {
+        goBack();
+      }
+      return;
+    }
     if (key === '/') { e.preventDefault(); document.getElementById('srch-inp')?.focus(); return; }
 
     // D-PAD arrow navigation
