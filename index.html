@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{
   --bg:#08080e;--bg2:#0f0f1a;--bg3:#181826;--bg4:#22223a;
@@ -28,12 +29,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--txt);min-h
 ::-webkit-scrollbar-track{background:transparent}
 
 /* ── NAV ── */
-#nav{
+#nb{
   position:fixed;top:0;left:0;right:0;height:var(--nav);z-index:200;
   display:flex;align-items:center;padding:0 5%;gap:8px;
   transition:background .3s,border-color .3s;
 }
-#nav.solid{background:rgba(8,8,14,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--brd)}
+#nb.solid{background:rgba(8,8,14,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--brd)}
 .logo{
   font-family:'Bebas Neue',sans-serif;font-size:1.45rem;letter-spacing:.06em;
   background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
@@ -322,8 +323,114 @@ footer{padding:52px 6% 36px;border-top:1px solid var(--brd);margin-top:56px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
 /* ══════════════════════════════════════════════
-   RESPONSIVE — TABLET
+   AUTH MODAL
 ══════════════════════════════════════════════ */
+#auth-modal{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:20px}
+#auth-modal.open{display:flex}
+.auth-box{
+  background:var(--bg2);border:1px solid var(--brd);
+  border-radius:20px;width:100%;max-width:420px;
+  box-shadow:0 40px 80px rgba(0,0,0,.9);overflow:hidden;
+  animation:authIn .3s var(--spring);
+}
+@keyframes authIn{from{opacity:0;transform:scale(.9) translateY(20px)}to{opacity:1;transform:none}}
+.auth-top{
+  padding:32px 32px 0;text-align:center;
+  background:linear-gradient(180deg,rgba(232,19,58,.07) 0%,transparent 100%);
+}
+.auth-logo{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.06em;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px}
+.auth-headline{font-size:1.05rem;font-weight:700;margin-bottom:4px}
+.auth-sub{font-size:.8rem;color:var(--txt2);margin-bottom:24px}
+.auth-tabs{display:flex;border-bottom:1px solid var(--brd)}
+.auth-tab{
+  flex:1;padding:11px;font-size:.85rem;font-weight:600;
+  cursor:pointer;text-align:center;color:var(--txt2);
+  border-bottom:2px solid transparent;transition:all .2s;margin-bottom:-1px;
+}
+.auth-tab.on{color:var(--red);border-bottom-color:var(--red)}
+.auth-body{padding:28px 32px 32px}
+.auth-field{margin-bottom:16px}
+.auth-label{display:block;font-size:.76rem;font-weight:600;color:var(--txt2);margin-bottom:6px;letter-spacing:.03em;text-transform:uppercase}
+.auth-input{
+  width:100%;background:rgba(255,255,255,.06);border:1px solid var(--brd);
+  border-radius:10px;padding:11px 14px;color:var(--txt);
+  font-family:'Outfit',sans-serif;font-size:.9rem;outline:none;
+  transition:border-color .2s,background .2s;
+}
+.auth-input:focus{border-color:var(--red);background:rgba(232,19,58,.06)}
+.auth-input::placeholder{color:var(--txt3)}
+.auth-err{
+  background:rgba(232,19,58,.1);border:1px solid rgba(232,19,58,.3);
+  border-radius:8px;padding:10px 13px;font-size:.8rem;color:#fca5a5;
+  margin-bottom:16px;display:none;
+}
+.auth-err.show{display:block}
+.auth-submit{
+  width:100%;padding:12px;border-radius:10px;border:none;cursor:pointer;
+  background:var(--grad);color:#fff;font-family:'Outfit',sans-serif;
+  font-size:.92rem;font-weight:700;transition:all .25s;
+  box-shadow:0 4px 18px rgba(232,19,58,.35);margin-bottom:14px;
+}
+.auth-submit:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(232,19,58,.5)}
+.auth-submit:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.auth-divider{text-align:center;font-size:.75rem;color:var(--txt3);margin-bottom:14px}
+.auth-cls{
+  position:absolute;top:16px;right:16px;
+  background:rgba(255,255,255,.07);border:none;color:var(--txt2);
+  width:32px;height:32px;border-radius:50%;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;transition:all .2s;
+}
+.auth-cls:hover{background:var(--red);color:#fff}
+
+/* ── USER AVATAR ── */
+.nav-user{position:relative;margin-left:8px;flex-shrink:0}
+.user-avatar{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--grad);color:#fff;
+  font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .22s;flex-shrink:0;
+  border:2px solid rgba(232,19,58,.4);
+  box-shadow:0 2px 10px rgba(232,19,58,.18);
+}
+.user-avatar:hover{border-color:var(--red);box-shadow:0 0 0 3px rgba(232,19,58,.2);transform:scale(1.07)}
+/* guest: dimmer neutral style */
+.user-avatar.guest{
+  background:var(--bg3);color:var(--txt2);
+  border-color:var(--brd);box-shadow:none;
+}
+.user-avatar.guest:hover{
+  background:rgba(232,19,58,.1);color:var(--txt);
+  border-color:var(--red);box-shadow:0 0 0 3px rgba(232,19,58,.14);
+}
+.user-drop{
+  position:absolute;top:calc(100% + 10px);right:0;
+  background:var(--bg2);border:1px solid var(--brd);
+  border-radius:12px;min-width:220px;padding:6px;
+  box-shadow:0 16px 40px rgba(0,0,0,.7);display:none;z-index:20;
+}
+.user-drop.open{display:block;animation:dropIn .2s var(--ease)}
+.user-drop-email{padding:10px 12px 8px;font-size:.75rem;color:var(--txt3);border-bottom:1px solid var(--brd);margin-bottom:6px;word-break:break-all}
+.user-drop-name{font-size:.88rem;font-weight:600;color:var(--txt);margin-bottom:2px}
+.user-drop-item{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 12px;border-radius:8px;cursor:pointer;
+  font-size:.84rem;color:var(--txt2);transition:all .18s;
+}
+.user-drop-item:hover{background:rgba(255,255,255,.06);color:var(--txt)}
+.user-drop-item.danger{color:#fca5a5}.user-drop-item.danger:hover{background:rgba(232,19,58,.1)}
+/* drawer auth section */
+.drawer-auth{padding:14px 20px 10px;border-bottom:1px solid var(--brd);margin-bottom:6px}
+.drawer-user-info{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.drawer-avatar{width:38px;height:38px;border-radius:50%;background:var(--grad);color:#fff;font-size:.9rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.drawer-user-name{font-size:.88rem;font-weight:600}
+.drawer-user-email{font-size:.72rem;color:var(--txt3);word-break:break-all}
+
+@media(max-width:520px){
+  .auth-box{border-radius:16px}
+  .auth-top,.auth-body{padding-left:22px;padding-right:22px}
+}
 @media(max-width:1100px){
   .card{width:142px}
   .card-img{height:214px}
@@ -629,7 +736,7 @@ footer{padding:52px 6% 36px;border-top:1px solid var(--brd);margin-top:56px}
 /* TV large screen / overscan */
 @media(hover:none) and (pointer:coarse){.card-fav,.rec-remove{opacity:1!important}}
 @media(min-width:1920px){
-  #nav{padding:0 7%}
+  #nb{padding:0 7%}
   .section,.pg-hd,.filters,.genre-grid,.ep-section,.watch-info{padding-left:7%;padding-right:7%}
   .det-body,.hero-content{padding-left:8%}
   .card{width:185px}.card-img{height:278px}
@@ -646,6 +753,43 @@ footer{padding:52px 6% 36px;border-top:1px solid var(--brd);margin-top:56px}
 <!-- scroll to top -->
 <div id="s2t" title="Back to top">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+</div>
+
+<!-- auth modal -->
+<div id="auth-modal" onclick="if(event.target===this)closeAuth()">
+  <div class="auth-box" style="position:relative">
+    <button class="auth-cls" onclick="closeAuth()">✕</button>
+    <div class="auth-top">
+      <div class="auth-logo">BEBU_STREAMING</div>
+      <div class="auth-headline" id="auth-headline">Sign in to your account</div>
+      <div class="auth-sub" id="auth-sub">Your watchlist and progress sync across all devices</div>
+    </div>
+    <div class="auth-tabs">
+      <div class="auth-tab on" id="tab-in"  onclick="switchTab('in')">Sign In</div>
+      <div class="auth-tab"    id="tab-up"  onclick="switchTab('up')">Sign Up</div>
+    </div>
+    <div class="auth-body">
+      <div class="auth-err" id="auth-err"></div>
+      <div class="auth-field">
+        <label class="auth-label">Email</label>
+        <input class="auth-input" id="auth-email" type="email" placeholder="you@example.com" autocomplete="email"/>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Password</label>
+        <input class="auth-input" id="auth-pw" type="password" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')submitAuth()"/>
+      </div>
+      <div class="auth-field" id="auth-pw2-wrap" style="display:none">
+        <label class="auth-label">Confirm Password</label>
+        <input class="auth-input" id="auth-pw2" type="password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')submitAuth()"/>
+      </div>
+      <button class="auth-submit" id="auth-btn" onclick="submitAuth()">Sign In</button>
+      <div class="auth-divider" id="auth-switch">
+        Don't have an account? <span style="color:var(--red);cursor:pointer;font-weight:600" onclick="switchTab('up')">Sign Up</span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- trailer modal -->
@@ -672,19 +816,8 @@ footer{padding:52px 6% 36px;border-top:1px solid var(--brd);margin-top:56px}
   </div>
 </div>
 
-<!-- navbar -->
-<nav id="nav">
-  <div class="logo" onclick="go('home')">BEBU<span style="-webkit-text-fill-color:rgba(240,240,255,.45)">_</span>STREAMING</div>
-  <ul class="nav-links" id="nav-links"></ul>
-  <div class="srch-wrap">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input id="srch-inp" type="text" placeholder="Search movies, shows…" autocomplete="off"/>
-    <div id="sdrop"></div>
-  </div>
-  <button class="nav-hbg" onclick="openDrawer()">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-  </button>
-</nav>
+<!-- navbar — renderNav() builds all content -->
+<nav id="nb"></nav>
 
 <!-- page content -->
 <main id="main"></main>
@@ -728,6 +861,393 @@ function lsGet(k, def) {
 }
 function lsSet(k, v) {
   try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+}
+
+/* ═══════════════════════════════════════════════
+   SUPABASE — INIT (fail-safe)
+═══════════════════════════════════════════════ */
+let SB = null;
+let SB_USER = null;
+
+try {
+  SB = window.supabase.createClient(
+    'https://thxkmbbwttprrvolzkfu.supabase.co',
+    'sb_publishable_a7OxSwEB_foKT_MgBLCdcA_jrb-Mabn'
+  );
+
+  // Listen for auth state changes
+  SB.auth.onAuthStateChange(async (event, session) => {
+    SB_USER = session?.user || null;
+
+    if (event === 'SIGNED_IN') {
+      closeAuth();
+      await cloudPull();
+      renderNav();
+      toast('Welcome back! ✨', 'ok');
+      renderPage();
+    } else if (event === 'INITIAL_SESSION') {
+      // Session restored on page load — pull fresh data from cloud
+      if (SB_USER) {
+        await cloudPull();
+        renderNav();
+        renderPage(); // re-render with synced data
+      } else {
+        renderNav(); // guest — just update nav state
+      }
+    } else if (event === 'TOKEN_REFRESHED') {
+      SB_USER = session?.user || null;
+      renderNav();
+    } else if (event === 'SIGNED_OUT') {
+      SB_USER = null;
+      renderNav();
+    }
+  });
+} catch (e) {
+  console.warn('Supabase init failed — running in offline/guest mode.', e);
+}
+
+/* ═══════════════════════════════════════════════
+   SUPABASE — AUTH UI
+═══════════════════════════════════════════════ */
+let authMode = 'in'; // 'in' | 'up'
+
+function openAuth(mode = 'in') {
+  if (!SB) { toast('Auth service unavailable. Please try again later.', 'err'); return; }
+  switchTab(mode);
+  document.getElementById('auth-modal').classList.add('open');
+  setTimeout(() => document.getElementById('auth-email')?.focus(), 150);
+}
+
+function closeAuth() {
+  document.getElementById('auth-modal').classList.remove('open');
+  clearAuthErr();
+}
+
+async function signOut() {
+  if (!SB) return;
+  await SB.auth.signOut();
+  closeUserDrop();
+  toast('Signed out. See you soon!');
+}
+function switchTab(mode) {
+  authMode = mode;
+  document.getElementById('tab-in').classList.toggle('on', mode === 'in');
+  document.getElementById('tab-up').classList.toggle('on', mode === 'up');
+  document.getElementById('auth-pw2-wrap').style.display = mode === 'up' ? 'block' : 'none';
+  document.getElementById('auth-btn').textContent = mode === 'in' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-headline').textContent = mode === 'in' ? 'Sign in to your account' : 'Create your account';
+  document.getElementById('auth-sub').textContent = mode === 'in'
+    ? 'Your watchlist and progress sync across all devices'
+    : 'Free forever — your data stays yours';
+  document.getElementById('auth-switch').innerHTML = mode === 'in'
+    ? `Don't have an account? <span style="color:var(--red);cursor:pointer;font-weight:600" onclick="switchTab('up')">Sign Up</span>`
+    : `Already have an account? <span style="color:var(--red);cursor:pointer;font-weight:600" onclick="switchTab('in')">Sign In</span>`;
+  clearAuthErr();
+}
+function showAuthErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.textContent = msg; el.classList.add('show');
+}
+function clearAuthErr() {
+  const el = document.getElementById('auth-err');
+  if (el) { el.textContent = ''; el.classList.remove('show'); }
+}
+
+async function submitAuth() {
+  const email = document.getElementById('auth-email')?.value.trim();
+  const pw    = document.getElementById('auth-pw')?.value;
+  const pw2   = document.getElementById('auth-pw2')?.value;
+  const btn   = document.getElementById('auth-btn');
+  clearAuthErr();
+
+  if (!email || !pw) { showAuthErr('Please fill in all fields.'); return; }
+  if (authMode === 'up' && pw !== pw2) { showAuthErr('Passwords do not match.'); return; }
+  if (pw.length < 6) { showAuthErr('Password must be at least 6 characters.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = authMode === 'in' ? 'Signing in…' : 'Creating account…';
+
+  try {
+    if (authMode === 'in') {
+      const { data, error } = await SB.auth.signInWithPassword({ email, password: pw });
+      if (error) {
+        // Handle specific error cases with friendly messages
+        const msg = error.message?.toLowerCase() || '';
+        if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+          showAuthErr('📧 Email not confirmed. Check your inbox for a confirmation link — or go to Supabase → Authentication → Providers → Email → disable "Confirm email" to skip this step.');
+        } else if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('wrong password') || msg.includes('invalid')) {
+          showAuthErr('❌ Sign in failed. This usually means:\n• Wrong email or password\n• Your email isn\'t confirmed yet — check your inbox for a confirmation link\n\n💡 To skip email confirmation: Supabase dashboard → Authentication → Providers → Email → turn OFF "Confirm email".');
+        } else if (msg.includes('too many') || msg.includes('rate limit')) {
+          showAuthErr('⏳ Too many attempts. Please wait a minute and try again.');
+        } else {
+          showAuthErr(error.message || 'Sign in failed. Please try again.');
+        }
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+        return;
+      }
+    } else {
+      // ── SIGN UP ──
+      const { data, error } = await SB.auth.signUp({
+        email, password: pw,
+        options: { emailRedirectTo: window.location.href }
+      });
+      if (error) {
+        const msg = error.message?.toLowerCase() || '';
+        if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already')) {
+          showAuthErr('An account with this email already exists. Please sign in instead.');
+          switchTab('in');
+        } else {
+          showAuthErr(error.message || 'Sign up failed. Please try again.');
+        }
+        btn.disabled = false; btn.textContent = 'Create Account'; return;
+      }
+
+      // If Supabase returned a session immediately (email confirm OFF), we're done
+      if (data?.session) return; // onAuthStateChange fires and handles everything
+
+      // Email confirmation is ON — immediately try sign-in anyway
+      // (some Supabase configs skip confirmation)
+      btn.textContent = 'Signing in…';
+      const { data: siData, error: siError } = await SB.auth.signInWithPassword({ email, password: pw });
+      if (!siError && siData?.session) return; // signed in ✅
+
+      // Truly needs email confirmation
+      showAuthErr(
+        '✅ Account created!\n\n' +
+        '📧 A confirmation email has been sent to ' + email + '\n\n' +
+        '⚡ To skip email confirmation entirely:\n' +
+        'Supabase Dashboard → Authentication → Providers → Email → turn OFF "Confirm email"\n\n' +
+        'After confirming (or disabling), come back and Sign In.'
+      );
+      switchTab('in');
+      btn.disabled = false; btn.textContent = 'Sign In';
+    }
+  } catch (err) {
+    showAuthErr(err.message || 'Something went wrong. Please try again.');
+    btn.disabled = false;
+    btn.textContent = authMode === 'in' ? 'Sign In' : 'Create Account';
+  }
+}
+
+async function signOut() {
+  await SB.auth.signOut();
+  closeUserDrop();
+  toast('Signed out. See you soon!');
+}
+
+function toggleUserDrop() {
+  document.getElementById('user-drop')?.classList.toggle('open');
+}
+function closeUserDrop() {
+  document.getElementById('user-drop')?.classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.nav-user')) closeUserDrop();
+});
+
+window.openAuth   = openAuth;
+window.closeAuth  = closeAuth;
+window.switchTab  = switchTab;
+window.submitAuth = submitAuth;
+window.signOut    = signOut;
+window.toggleUserDrop = toggleUserDrop;
+
+/* ═══════════════════════════════════════════════
+   SUPABASE — CLOUD SYNC
+═══════════════════════════════════════════════ */
+
+// Pull everything from cloud and merge with local
+async function cloudPull() {
+  const user = await cloudUser();
+  if (!user) { console.warn('[Cloud] cloudPull skipped — no valid session'); return; }
+  const uid = user.id;
+  toast('Syncing your data… ☁️', 'info', 2500);
+
+  // ── FAVORITES ──
+  try {
+    const { data } = await SB.from('favorites').select('*').eq('user_id', uid).order('added_at', { ascending: false });
+    if (data?.length) {
+      // Push any local-only favs up first
+      const cloudSet = new Set(data.map(f => `${f.tmdb_id}_${f.media_type}`));
+      for (const item of ST.favData) {
+        const t = item._mtype || mtype(item);
+        if (!cloudSet.has(`${item.id}_${t}`)) await cloudPushFav(item);
+      }
+      // Merge: cloud is source of truth — register each item in REG so getItem() works
+      ST.favData = data.map(f => {
+        const item = {
+          id: f.tmdb_id, title: f.title, poster_path: f.poster_path,
+          backdrop_path: f.backdrop_path, vote_average: f.vote_average,
+          release_date: f.release_date, overview: f.overview,
+          media_type: f.media_type, _mtype: f.media_type,
+        };
+        regItem(item); // ← register so toggleFav/getItem works
+        return item;
+      });
+      ST.favIds = new Set(data.map(f => f.tmdb_id));
+      lsSet('bsz-fids', [...ST.favIds]);
+      lsSet('bsz-fdat', ST.favData);
+    } else {
+      // No cloud data — push local up
+      for (const item of ST.favData) await cloudPushFav(item);
+    }
+  } catch(e) { console.error('[Supabase] favorites pull failed:', e); }
+
+  // ── WATCH PROGRESS ──
+  try {
+    const { data } = await SB.from('watch_progress').select('*').eq('user_id', uid);
+    if (data?.length) {
+      data.forEach(p => {
+        const local = ST.progress[p.tmdb_id];
+        const cloudTs = new Date(p.updated_at).getTime();
+        if (!local || cloudTs > (local.ts || 0)) {
+          ST.progress[p.tmdb_id] = { type: p.media_type, pct: +p.pct, s: p.season, ep: p.episode, ts: cloudTs };
+        }
+      });
+      lsSet('bsz-prog', ST.progress);
+    }
+    // Push local-only progress to cloud
+    for (const [tmdbId, prog] of Object.entries(ST.progress)) {
+      const found = data?.find(p => p.tmdb_id === +tmdbId);
+      if (!found) await cloudPushProgress(+tmdbId, prog.type, prog.pct, prog.s, prog.ep, '', null, null);
+    }
+  } catch(e) { console.error('[Supabase] progress pull failed:', e); }
+
+  // ── RECENTLY VIEWED ──
+  try {
+    const { data } = await SB.from('recently_viewed').select('*').eq('user_id', uid).order('viewed_at', { ascending: false }).limit(50);
+    if (data?.length) {
+      const cloudIds = new Set(data.map(r => r.tmdb_id));
+      const localOnly = ST.recent.filter(r => !cloudIds.has(r.id));
+      // Register cloud items in REG so removeRecent/getItem works
+      const cloudItems = data.map(r => {
+        const item = {
+          id: r.tmdb_id, title: r.title, poster_path: r.poster_path,
+          backdrop_path: r.backdrop_path, vote_average: r.vote_average,
+          release_date: r.release_date, media_type: r.media_type, _mtype: r.media_type,
+        };
+        regItem(item); // ← register so getItem() works
+        return item;
+      });
+      ST.recent = [...cloudItems, ...localOnly.map(i => ({ ...i, media_type: i._mtype || mtype(i) }))].slice(0, 50);
+      lsSet('bsz-rec', ST.recent);
+    } else {
+      for (const item of ST.recent) await cloudPushRecent(item);
+    }
+  } catch(e) { console.error('[Supabase] recently_viewed pull failed:', e); }
+}
+
+/* ─── CLOUD HELPER ─────────────────────────────────────────────
+   Always fetches a fresh verified user from Supabase.
+   Returns null if not signed in or session expired.
+────────────────────────────────────────────────────────────── */
+async function cloudUser() {
+  if (!SB) return null;
+  try {
+    const { data: { user }, error } = await SB.auth.getUser();
+    if (error || !user) { SB_USER = null; return null; }
+    SB_USER = user; // keep in sync
+    return user;
+  } catch { return null; }
+}
+
+/* ─── PUSH FAVORITE ──────────────────────────────────────────── */
+async function cloudPushFav(item) {
+  const user = await cloudUser(); if (!user) return;
+  const t = item._mtype || mtype(item);
+  try {
+    // Use INSERT + ignore duplicate — avoids needing UPDATE RLS policy
+    const { error } = await SB.from('favorites').insert({
+      user_id: user.id,
+      tmdb_id:      +item.id,
+      media_type:   t,
+      title:        item.title || item.name || 'Untitled',
+      poster_path:  item.poster_path  || null,
+      backdrop_path:item.backdrop_path|| null,
+      vote_average: item.vote_average || null,
+      release_date: item.release_date || item.first_air_date || null,
+      overview:     item.overview     || null,
+    });
+    if (error && error.code !== '23505') { // 23505 = unique violation (already exists, fine)
+      console.error('[Cloud] push fav:', error.message);
+      toast('⚠️ Watchlist cloud sync failed', 'err', 4000);
+    }
+  } catch(e) { console.error('[Cloud] push fav exception:', e); }
+}
+
+/* ─── REMOVE FAVORITE ────────────────────────────────────────── */
+async function cloudRemoveFav(tmdbId, mediaType) {
+  const user = await cloudUser(); if (!user) return;
+  try {
+    const { error } = await SB.from('favorites').delete()
+      .eq('user_id', user.id)
+      .eq('tmdb_id', +tmdbId)
+      .eq('media_type', mediaType);
+    if (error) { console.error('[Cloud] remove fav:', error.message); toast('⚠️ Watchlist sync failed', 'err', 3000); }
+  } catch(e) { console.error('[Cloud] remove fav exception:', e); }
+}
+
+/* ─── PUSH WATCH PROGRESS ────────────────────────────────────── */
+async function cloudPushProgress(tmdbId, type, pct, s, ep, titleStr, poster, backdrop) {
+  const user = await cloudUser(); if (!user) return;
+  try {
+    const { error } = await SB.from('watch_progress').upsert({
+      user_id:      user.id,
+      tmdb_id:      +tmdbId,
+      media_type:   type,
+      title:        titleStr || '',
+      poster_path:  poster   || null,
+      backdrop_path:backdrop || null,
+      pct:          Math.round(pct * 100) / 100,
+      season:       s  || 1,
+      episode:      ep || 1,
+      updated_at:   new Date().toISOString(),
+    }, { onConflict: 'user_id,tmdb_id,media_type' });
+    if (error) console.error('[Cloud] push progress:', error.message);
+  } catch(e) { console.error('[Cloud] push progress exception:', e); }
+}
+
+/* ─── REMOVE WATCH PROGRESS ──────────────────────────────────── */
+async function cloudRemoveProgress(tmdbId) {
+  const user = await cloudUser(); if (!user) return;
+  try {
+    const { error } = await SB.from('watch_progress').delete()
+      .eq('user_id', user.id)
+      .eq('tmdb_id', +tmdbId);
+    if (error) console.error('[Cloud] remove progress:', error.message);
+  } catch(e) { console.error('[Cloud] remove progress exception:', e); }
+}
+
+/* ─── PUSH RECENTLY VIEWED ───────────────────────────────────── */
+async function cloudPushRecent(item) {
+  const user = await cloudUser(); if (!user) return;
+  const t = item._mtype || mtype(item);
+  try {
+    const { error } = await SB.from('recently_viewed').upsert({
+      user_id:      user.id,
+      tmdb_id:      +item.id,
+      media_type:   t,
+      title:        item.title || item.name || 'Untitled',
+      poster_path:  item.poster_path  || null,
+      backdrop_path:item.backdrop_path|| null,
+      vote_average: item.vote_average || null,
+      release_date: item.release_date || item.first_air_date || null,
+      viewed_at:    new Date().toISOString(),
+    }, { onConflict: 'user_id,tmdb_id,media_type' });
+    if (error) console.error('[Cloud] push recent:', error.message);
+  } catch(e) { console.error('[Cloud] push recent exception:', e); }
+}
+
+/* ─── REMOVE RECENTLY VIEWED ─────────────────────────────────── */
+async function cloudRemoveRecent(tmdbId) {
+  const user = await cloudUser(); if (!user) return;
+  try {
+    const { error } = await SB.from('recently_viewed').delete()
+      .eq('user_id', user.id)
+      .eq('tmdb_id', +tmdbId);
+    if (error) console.error('[Cloud] remove recent:', error.message);
+  } catch(e) { console.error('[Cloud] remove recent exception:', e); }
 }
 
 /* ═══════════════════════════════════════════════
@@ -797,8 +1317,23 @@ function getItem(id) { return REG.get(+id); }
 function isFav(id) { return ST.favIds.has(+id); }
 function toggleFav(id) {
   id = +id;
-  const item = getItem(id);
-  if (!item) return;
+
+  // ── Auth gate: must be signed in to use watchlist ──
+  if (!SB_USER) {
+    openAuth('in');
+    toast('Sign in to save to your Watchlist', 'info');
+    return;
+  }
+
+  // Find the item — check REG first, then fall back to stored arrays
+  let item = getItem(id);
+  if (!item) {
+    // Item was loaded from Supabase and may not be in REG yet
+    item = ST.favData.find(f => f.id === id)
+        || ST.recent.find(r => r.id === id);
+    if (item) regItem(item); // register it now
+  }
+  if (!item) { console.warn('toggleFav: item not found for id', id); return; }
   const removing = isFav(id);
 
   if (removing) {
@@ -813,7 +1348,13 @@ function toggleFav(id) {
   lsSet('bsz-fids', [...ST.favIds]);
   lsSet('bsz-fdat', ST.favData);
 
-  // ── Real-time: update every fav button with this id ──
+  // ── Cloud sync ──
+  const itemType = item._mtype || mtype(item);
+  if (removing) {
+    cloudRemoveFav(id, itemType);
+  } else {
+    cloudPushFav(item);
+  }
   document.querySelectorAll(`[data-fid="${id}"]`).forEach(btn => {
     btn.classList.toggle('saved', isFav(id));
     btn.innerHTML = isFav(id) ? SVG.bmSolid : SVG.bm;
@@ -850,6 +1391,7 @@ function addRecent(item) {
   ST.recent.unshift(item);
   if (ST.recent.length > 24) ST.recent.pop();
   lsSet('bsz-rec', ST.recent);
+  cloudPushRecent(item); // sync to cloud
 }
 
 /* progress */
@@ -857,6 +1399,14 @@ function getProgress(id) { return ST.progress[id] || null; }
 function saveProgress(id, type, pct, s, ep) {
   ST.progress[id] = { type, pct: Math.min(pct, 100), s, ep, ts: Date.now() };
   lsSet('bsz-prog', ST.progress);
+  // Get item info for cloud record
+  const item = getItem(id);
+  cloudPushProgress(
+    id, type, Math.min(pct, 100), s, ep,
+    item ? (item.title || item.name || '') : '',
+    item?.poster_path || null,
+    item?.backdrop_path || null
+  );
 }
 
 /* toast */
@@ -911,6 +1461,10 @@ const PAGES = [
    NAVIGATION
 ═══════════════════════════════════════════════ */
 function go(page, opts = {}) {
+  // Clear watch progress timer when navigating away from watch page
+  if (window._progressTimer) { clearInterval(window._progressTimer); window._progressTimer = null; }
+  if (window._msgHandler) { window.removeEventListener('message', window._msgHandler); window._msgHandler = null; }
+
   // Save current state to stack before navigating (max 30 deep)
   const snap = {
     page: ST.page, id: ST.id, mediaType: ST.mediaType,
@@ -980,25 +1534,129 @@ const pageTitles = {
    RENDER NAV
 ═══════════════════════════════════════════════ */
 function renderNav() {
-  const list = document.getElementById('nav-links');
-  if (list) {
-    list.innerHTML = PAGES.map(p =>
-      `<li><a class="${ST.page===p.id?'on':''}" onclick="go('${p.id}')">${p.label}</a></li>`
-    ).join('');
+  const nb = document.getElementById('nb');
+  if (!nb) return;
+  const userInitial = SB_USER ? (SB_USER.email?.[0] || '?').toUpperCase() : '';
+  const userEmail   = SB_USER?.email || '';
+  const userName    = userEmail.split('@')[0];
+
+  nb.innerHTML = `
+    <div class="logo" onclick="go('home')">BEBU<span style="-webkit-text-fill-color:rgba(240,240,255,.45)">_</span>STREAMING</div>
+    <ul class="nav-links">
+      ${PAGES.map(p => `<li><a class="${ST.page===p.id?'on':''}" onclick="go('${p.id}')">${p.label}</a></li>`).join('')}
+    </ul>
+    <div class="srch-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="srch-inp" type="text" placeholder="Search movies, shows…" autocomplete="off" value="${ST.query||''}"/>
+      <div id="sdrop"></div>
+    </div>
+    ${SB_USER ? `
+    <div class="nav-user">
+      <div class="user-avatar" onclick="toggleUserDrop()" title="${userEmail}">${userInitial}</div>
+      <div class="user-drop" id="user-drop">
+        <div class="user-drop-email">
+          <div class="user-drop-name">${userName}</div>
+          <div>${userEmail}</div>
+        </div>
+        <div class="user-drop-item" onclick="go('favorites');closeUserDrop()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          My Watchlist
+        </div>
+        <div class="user-drop-item danger" onclick="signOut()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign Out
+        </div>
+      </div>
+    </div>` : `
+    <div class="nav-user">
+      <div class="user-avatar guest" onclick="openAuth('in')" title="Sign in to your account">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+    </div>`}
+    <button class="nav-hbg" onclick="openDrawer()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  `;
+
+  // Re-wire desktop search after innerHTML reset
+  const inp = document.getElementById('srch-inp');
+  if (inp) {
+    inp.addEventListener('input', e => {
+      clearTimeout(window._srchT);
+      const q = e.target.value.trim();
+      if (!q) { closeDrop(); return; }
+      window._srchT = setTimeout(async () => {
+        if (q.length < 2) return;
+        try {
+          const d = await A.search(q, 1);
+          const items = d.results.filter(i => i.media_type !== 'person' && i.poster_path && (i.title || i.name)).slice(0, 6);
+          showDrop(items, q);
+        } catch {}
+      }, 380);
+    });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { go('search', { query: e.target.value.trim() }); closeDrop(); }
+      if (e.key === 'Escape') closeDrop();
+    });
+    inp.addEventListener('focus', () => {
+      if (inp.value.trim().length >= 2) document.getElementById('sdrop')?.classList.add('show');
+    });
   }
+
+  buildMNav();
+}
+
+function buildMNav() {
   const dl = document.getElementById('drawer-links');
-  if (dl) {
-    dl.innerHTML = PAGES.map(p =>
-      `<div class="drawer-link ${ST.page===p.id?'on':''}" onclick="go('${p.id}')">${p.icon} ${p.label}</div>`
-    ).join('');
-  }
+  if (!dl) return;
+  const userEmail  = SB_USER?.email || '';
+  const userName   = userEmail.split('@')[0];
+  const userInitial = SB_USER ? (userEmail[0] || '?').toUpperCase() : '';
+
+  const authSection = SB_USER ? `
+    <div class="drawer-auth">
+      <div class="drawer-user-info">
+        <div class="drawer-avatar">${userInitial}</div>
+        <div>
+          <div class="drawer-user-name">${userName}</div>
+          <div class="drawer-user-email">${userEmail}</div>
+        </div>
+      </div>
+      <button style="width:100%;padding:8px;border-radius:8px;background:rgba(232,19,58,.12);border:1px solid rgba(232,19,58,.25);color:#fca5a5;font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer" onclick="signOut();closeDrawer()">
+        Sign Out
+      </button>
+    </div>` : `
+    <div class="drawer-auth">
+      <div class="drawer-user-info">
+        <div class="drawer-avatar" style="background:var(--bg4);border:1px solid var(--brd)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,255,.5)" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div>
+          <div class="drawer-user-name" style="color:var(--txt2)">Not signed in</div>
+          <div class="drawer-user-email">Save your progress across devices</div>
+        </div>
+      </div>
+      <button style="width:100%;padding:10px;border-radius:8px;background:var(--grad);border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(232,19,58,.3)" onclick="openAuth('in');closeDrawer()">
+        Sign In / Sign Up
+      </button>
+    </div>`;
+
+  dl.innerHTML = authSection + PAGES.map(p =>
+    `<div class="drawer-link ${ST.page===p.id?'on':''}" onclick="go('${p.id}')">${p.icon} ${p.label}</div>`
+  ).join('');
 }
 
 /* ═══════════════════════════════════════════════
    SCROLL / DRAWER / MODAL
 ═══════════════════════════════════════════════ */
 window.addEventListener('scroll', () => {
-  document.getElementById('nav').classList.toggle('solid', window.scrollY > 40);
+  document.getElementById('nb').classList.toggle('solid', window.scrollY > 40);
   const s2t = document.getElementById('s2t');
   if (s2t) s2t.classList.toggle('show', window.scrollY > 380);
 });
@@ -1029,28 +1687,8 @@ window.closeTrailer = closeTrailer;
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrailer(); });
 
 /* ═══════════════════════════════════════════════
-   LIVE SEARCH
+   LIVE SEARCH (desktop drop)
 ═══════════════════════════════════════════════ */
-let srchTimer;
-const srchInp = document.getElementById('srch-inp');
-srchInp.addEventListener('input', e => {
-  clearTimeout(srchTimer);
-  const q = e.target.value.trim();
-  if (!q) { closeDrop(); return; }
-  srchTimer = setTimeout(async () => {
-    if (q.length < 2) return;
-    try {
-      const d = await A.search(q, 1);
-      const items = d.results.filter(i => i.media_type !== 'person' && i.poster_path && (i.title || i.name)).slice(0, 6);
-      showDrop(items, q);
-    } catch {}
-  }, 380);
-});
-srchInp.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { go('search', { query: e.target.value.trim() }); closeDrop(); }
-  if (e.key === 'Escape') closeDrop();
-});
-srchInp.addEventListener('focus', () => { if (srchInp.value.trim().length >= 2) document.getElementById('sdrop').classList.add('show'); });
 document.addEventListener('click', e => { if (!e.target.closest('.srch-wrap')) closeDrop(); });
 
 function showDrop(items, q) {
@@ -1208,9 +1846,9 @@ function buildCWCard(item) {
 
 function removeCW(id) {
   id = +id;
-  // Clear progress so it no longer appears in CW
   delete ST.progress[id];
   lsSet('bsz-prog', ST.progress);
+  cloudRemoveProgress(id); // sync to cloud
   const el = document.getElementById(`cw-${id}`);
   if (el) {
     el.style.transition = 'opacity .25s,transform .25s';
@@ -1265,6 +1903,7 @@ function removeRecent(id) {
   id = +id;
   ST.recent = ST.recent.filter(r => r.id !== id);
   lsSet('bsz-rec', ST.recent);
+  cloudRemoveRecent(id); // sync to cloud
   const el = document.getElementById(`rec-${id}`);
   if (el) {
     el.style.transition = 'opacity .25s, transform .25s';
@@ -2149,7 +2788,11 @@ async function pageWatch() {
 </div>`;
 
     if (t === 'tv' && seasons.length) loadWatchEps(id, season);
-    setupProgressTracker(id, t);
+    // Pass runtime so timer-based progress is accurate
+    const totalMins = t === 'movie'
+      ? (det.runtime || 95)
+      : (det.episode_run_time?.[0] || 45);
+    setupProgressTracker(id, t, totalMins);
 
   } catch (e) {
     main.innerHTML = errorState('Failed to load player.', true);
@@ -2177,19 +2820,44 @@ async function loadWatchEps(tvId, s) {
 }
 window.loadWatchEps = loadWatchEps;
 
-function setupProgressTracker(id, type) {
-  const handler = evt => {
+function setupProgressTracker(id, type, totalMinutes) {
+  // Clear any existing progress timer
+  if (window._progressTimer) clearInterval(window._progressTimer);
+
+  const totalSecs = (totalMinutes || 95) * 60; // default 95min for unknown runtime
+  // Start from existing progress if available
+  const existing = getProgress(id);
+  let watchedSecs = existing ? Math.floor((existing.pct / 100) * totalSecs) : 0;
+
+  // Save progress every 15 seconds of active watch time
+  window._progressTimer = setInterval(() => {
+    watchedSecs += 15;
+    const pct = Math.min((watchedSecs / totalSecs) * 100, 99); // cap at 99% until explicitly finished
+    saveProgress(id, type, pct, ST.season, ST.ep);
+  }, 15000);
+
+  // Also keep postMessage listener as bonus (in case Vidking does emit events)
+  const msgHandler = evt => {
     if (typeof evt.data !== 'string') return;
     try {
       const d = JSON.parse(evt.data);
       if (d?.type === 'PLAYER_EVENT' && d.data?.progress > 2) {
+        // If Vidking reports progress, trust it over our timer
+        clearInterval(window._progressTimer);
         saveProgress(id, type, d.data.progress, d.data.season || ST.season, d.data.episode || ST.ep);
+        watchedSecs = Math.floor((d.data.progress / 100) * totalSecs);
+        // Restart timer from Vidking's reported position
+        window._progressTimer = setInterval(() => {
+          watchedSecs += 15;
+          const pct = Math.min((watchedSecs / totalSecs) * 100, 99);
+          saveProgress(id, type, pct, ST.season, ST.ep);
+        }, 15000);
       }
     } catch {}
   };
-  if (window._tracker) window.removeEventListener('message', window._tracker);
-  window._tracker = handler;
-  window.addEventListener('message', handler);
+  if (window._msgHandler) window.removeEventListener('message', window._msgHandler);
+  window._msgHandler = msgHandler;
+  window.addEventListener('message', msgHandler);
 }
 
 /* ═══════════════════════════════════════════════
@@ -2299,8 +2967,25 @@ function renderPage() {
 /* ═══════════════════════════════════════════════
    BOOT
 ═══════════════════════════════════════════════ */
+// Step 1: Render nav + page IMMEDIATELY with guest state (no async wait)
+// This ensures the navbar is never blank while waiting for Supabase
 renderNav();
 renderPage();
+
+// Step 2: Resolve auth session in background and update if needed
+if (SB) {
+  SB.auth.getSession().then(async ({ data: { session } }) => {
+    const wasGuest = !SB_USER;
+    SB_USER = session?.user || null;
+    if (SB_USER) {
+      await cloudPull();        // sync cloud data
+      if (wasGuest) {           // only re-render if state changed
+        renderNav();
+        renderPage();
+      }
+    }
+  }).catch(e => console.warn('Session restore failed:', e));
+}
 </script>
 </body>
 </html>
