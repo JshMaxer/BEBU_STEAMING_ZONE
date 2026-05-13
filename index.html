@@ -2023,7 +2023,7 @@ function heroHTML(idx) {
       </div>
       <div class="hero-desc" id="hero-desc">${item.overview || ''}</div>
       <div class="hero-btns">
-        <button class="btn btn-red" id="hero-watch" onclick="go('watch',{id:${item.id},mediaType:'${t}',season:1,ep:1})">
+        <button class="btn btn-red" id="hero-watch" onclick="go('watch',{id:${item.id},mediaType:'${t}',season:${prg?.s||1},ep:${prg?.ep||1}})">
           ${SVG.play} ${prg && prg.pct > 5 ? 'Continue' : 'Watch Now'}
         </button>
         <button class="btn btn-dim" id="hero-info-btn" onclick="go('detail',{id:${item.id},mediaType:'${t}'})">
@@ -2062,7 +2062,7 @@ function setHero(idx) {
     const tEl = document.getElementById('hero-title'); if (tEl) tEl.textContent = title(item);
     const dEl = document.getElementById('hero-desc');  if (dEl) dEl.textContent = item.overview || '';
     const wBtn = document.getElementById('hero-watch');
-    if (wBtn) { wBtn.setAttribute('onclick', `go('watch',{id:${item.id},mediaType:'${t}',season:1,ep:1})`); wBtn.innerHTML = `${SVG.play} ${prg && prg.pct > 5 ? 'Continue' : 'Watch Now'}`; }
+    if (wBtn) { wBtn.setAttribute('onclick', `go('watch',{id:${item.id},mediaType:'${t}',season:${prg?.s||1},ep:${prg?.ep||1}})`); wBtn.innerHTML = `${SVG.play} ${prg && prg.pct > 5 ? 'Continue' : 'Watch Now'}`; }
     const iBtn = document.getElementById('hero-info-btn');
     if (iBtn) iBtn.setAttribute('onclick', `go('detail',{id:${item.id},mediaType:'${t}'})`);
     info.querySelectorAll('[data-fid]').forEach(b => {
@@ -2627,7 +2627,7 @@ async function pageDetail() {
           ${wrts.length ? `<div class="crew-block"><div class="crew-lbl">Writer${wrts.length>1?'s':''}</div><div class="crew-val">${wrts.map(w=>w.name).join(', ')}</div></div>` : ''}
         </div>` : ''}
         <div class="det-actions">
-          <button class="btn btn-red" onclick="go('watch',{id:${det.id},mediaType:'${ST.mediaType}',season:${ST.season||1},ep:1})">
+          <button class="btn btn-red" onclick="go('watch',{id:${det.id},mediaType:'${ST.mediaType}',season:${prg?.s||ST.season||1},ep:${prg?.ep||1}})">
             ${SVG.play} ${prg && prg.pct > 5 ? `Continue (${Math.round(prg.pct)}%)` : 'Watch Now'}
           </button>
           ${trailer ? `<button class="btn btn-dim" onclick="openTrailer('${trailer.key}')">${SVG.play} Trailer</button>` : ''}
@@ -2729,9 +2729,20 @@ async function pageWatch() {
 
     const { id, mediaType: t, season, ep } = ST;
     const prg = getProgress(id);
+
+    // ── Calculate resume position in seconds ──
+    // Only resume if: progress exists, pct > 3%, and we're on the right episode (for TV)
+    const isSameContent = t === 'movie' || !prg || (prg.s === season && prg.ep === ep);
+    const totalMins = t === 'movie'
+      ? (det.runtime || 95)
+      : (det.episode_run_time?.[0] || 45);
+    const resumeSecs = isSameContent && prg && prg.pct > 3
+      ? Math.floor((prg.pct / 100) * totalMins * 60)
+      : 0;
+
     const embedUrl = t === 'movie'
-      ? `${VK}/movie/${id}?color=${VCOL}&autoPlay=true&sub=1&subtitle=true`
-      : `${VK}/tv/${id}/${season}/${ep}?color=${VCOL}&autoPlay=true&nextEpisode=true&episodeSelector=true&sub=1&subtitle=true`;
+      ? `${VK}/movie/${id}?color=${VCOL}&autoPlay=true&sub=1&subtitle=true${resumeSecs > 30 ? `&progress=${resumeSecs}` : ''}`
+      : `${VK}/tv/${id}/${season}/${ep}?color=${VCOL}&autoPlay=true&nextEpisode=true&episodeSelector=true&sub=1&subtitle=true${resumeSecs > 30 ? `&progress=${resumeSecs}` : ''}`;
 
     const seasons = t === 'tv' ? (det.seasons || []).filter(s => s.season_number > 0) : [];
 
@@ -2788,10 +2799,7 @@ async function pageWatch() {
 </div>`;
 
     if (t === 'tv' && seasons.length) loadWatchEps(id, season);
-    // Pass runtime so timer-based progress is accurate
-    const totalMins = t === 'movie'
-      ? (det.runtime || 95)
-      : (det.episode_run_time?.[0] || 45);
+    // totalMins already computed above when building embedUrl
     setupProgressTracker(id, t, totalMins);
 
   } catch (e) {
