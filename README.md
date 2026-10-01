@@ -97,33 +97,62 @@ Every title card shows a color-coded badge so you know what to expect before you
 
 ## Navigation
 
-The app remembers your full navigation history. The **← Back** button always takes you exactly where you came from — whether that's the home page, a genre list, search results, or a movie grid. No unexpected loops, no getting lost.
+The app uses the native HTML5 History API (`history.pushState` and `window.onpopstate`). The browser **← Back** and **→ Forward** buttons navigate naturally without broken views or blank pages.
 
-- **Escape key** on a detail or watch page also goes back
-- **Arrow keys** navigate between elements on TV and keyboard
-- **/** key focuses the search bar instantly
+- **Escape key** on a detail, watch page, or modal closes overlays or returns back
+- **Space key** in the YouTube Trailer modal toggles play/pause
+- **Arrow keys** navigate between interactive cards seamlessly on desktop and Smart TV D-PAD
+- **Enter key** activates focused cards and search submissions
+
+---
+
+## 🚀 Running Locally
+
+To run the application locally with ES module support:
+
+```bash
+# Option 1: Using Node & npm
+npm start
+# or: npx serve . -l 3000
+
+# Option 2: Using Python 3
+python -m http.server 3000
+```
+
+Then open your browser to `http://localhost:3000/`.
+
+---
+
+## 🛠️ Modular Architecture
+
+- **`index.html`** — Semantic HTML5 shell, container roots, global modals, and script module loader.
+- **`styles.css`** — Cinema dark design system with obsidian tones (`#07070b`), neon red accents (`#e8133a`), frosted glassmorphism, responsive breakpoints, and custom typography.
+- **`js/api.js`** — TMDB API client with 350-item LRU memory caching, request-chunking concurrency controller (`batchFetch`), and rate-limit guard.
+- **`js/state.js`** — LocalStorage state management (Watchlist, History, Progress, Preferences) with pub/sub event syncing and JSON backup/restore.
+- **`js/player.js`** — Embed URL generator for CineSrc playback, postMessage telemetry synchronization, auto next-episode event handling, and player close listener.
+- **`js/app.js`** — HTML5 History routing engine, view renderers, calendar in-place detail toggle, and lifecycle memory cleanup.
 
 ---
 
 ## Credits & Disclaimer
 
-**Movie & TV data** provided by [The Movie Database (TMDB)](https://www.themoviedb.org/).
+**Movie & TV data** provided by [The Movie Database (TMDB)](https://www.themoviedb.org/).  
 *This product uses the TMDB API but is not endorsed or certified by TMDB.*
 
-**Video playback** powered by Vidking embed player.
+**Video playback** powered by CineSrc.  
 All media rights belong to their respective copyright holders.
 
 **Fonts** — Bebas Neue & Outfit via Google Fonts.
 
 ---
 
-> BEBU Streaming Zone is built for personal and educational use only.
-> It does not host or distribute any media content.
+> BEBU Streaming Zone is built for personal and educational use only.  
+> It does not host or distribute any media content.  
 > All content rights belong to their respective owners.
 
 ---
 
-**BEBU STREAMING ZONE**
-*Premium streaming, crafted with care.*
+**BEBU STREAMING ZONE**  
+*Premium streaming, crafted with care.*  
 
 Made with ❤️ by Joshua Cambal for my BEBU Alona!

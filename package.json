@@ -1,0 +1,21 @@
+{
+  "name": "bebu-streaming-zone",
+  "version": "2.0.0",
+  "description": "A premium, cinema-grade streaming web application for movies and TV shows.",
+  "type": "module",
+  "scripts": {
+    "start": "npx -y serve . -l 3000",
+    "dev": "npx -y serve . -l 3000"
+  },
+  "keywords": [
+    "streaming",
+    "movies",
+    "tv-shows",
+    "tmdb",
+    "cinesrc",
+    "cinema",
+    "web-app"
+  ],
+  "author": "Joshua Cambal",
+  "license": "MIT"
+}
