@@ -34,6 +34,50 @@
     </div>
   </div>
 
+  <!-- Cinema Player Modal (Optimized 60 FPS / Direct Decoding) -->
+  <div id="player-modal" class="cinema-modal-overlay" onclick="if(event.target === this) window.closePlayerModal()">
+    <div class="cinema-modal-container">
+      <div class="cinema-bar">
+        <div class="cinema-bar-left">
+          <div class="cinema-title-group">
+            <div class="cinema-title" id="player-modal-title">Loading Title…</div>
+            <div class="cinema-subtitle" id="player-modal-sub">CineSrc Ultra HD</div>
+          </div>
+        </div>
+        <div class="cinema-bar-right">
+          <div class="cinesrc-badge">
+            <span class="cinesrc-dot"></span>
+            <span class="cinesrc-text">CineSrc Ultra HD</span>
+          </div>
+          <button id="player-ep-toggle" class="cinema-btn cinema-ep-btn" onclick="window.togglePlayerEpisodeDrawer()" title="Select Episodes" style="display:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            <span>Episodes</span>
+          </button>
+          <button id="player-modal-watchlist-btn" class="cinema-btn cinema-ico-btn" onclick="window.handlePlayerWatchlistToggle()" title="Watchlist">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="cinema-btn cinema-cls-btn cinema-ico-btn" onclick="window.closePlayerModal()" title="Close Player (Esc)" aria-label="Close Player">✕</button>
+        </div>
+      </div>
+      <div class="cinema-body-layout">
+        <div class="cinema-player-frame" id="cinema-player-frame">
+          <div class="cinema-iframe-wrap">
+            <iframe id="cinema-iframe" src="" allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe>
+          </div>
+        </div>
+        <div class="cinema-ep-drawer" id="cinema-ep-drawer">
+          <div class="cinema-ep-header">
+            <div class="cinema-ep-title">Season &amp; Episodes</div>
+            <button class="cinema-ep-close-btn" onclick="window.togglePlayerEpisodeDrawer()" title="Close Episodes">✕</button>
+          </div>
+          <div class="cinema-season-nav" id="cinema-season-nav"></div>
+          <div class="cinema-range-nav" id="cinema-range-nav" style="display:none"></div>
+          <div class="cinema-ep-list" id="cinema-ep-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Data Backup / Restore Modal -->
   <div id="data-modal" class="modal-overlay" onclick="if(event.target === this) window.closeDataModal()"></div>
 
@@ -51,7 +95,7 @@
       <div class="drawer-srch-wrap">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input id="drawer-srch" type="text" placeholder="Search movies & shows…" autocomplete="off" 
-               onkeydown="if(event.key==='Enter'){ window.navigateTo('#/search?q=' + encodeURIComponent(this.value.trim())); window.closeDrawer(); }" />
+               onkeydown="if(event.key==='Enter'){ window.navigateTo('/search?q=' + encodeURIComponent(this.value.trim())); window.closeDrawer(); }" />
         <div id="drawer-sdrop"></div>
       </div>
       <div id="drawer-links"></div>

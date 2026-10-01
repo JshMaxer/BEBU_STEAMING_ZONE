@@ -11,7 +11,7 @@ import {
   removeProgress, getContinueWatching, exportUserData, importUserData,
   showToast, subscribe
 } from './state.js';
-import { mountPlayer, destroyPlayer } from './player.js';
+import { mountPlayer, destroyPlayer, sendPlayerCommand, buildEmbedUrl } from './player.js';
 
 /* ─── ICONS & SVG GLYPHS ──────────────────────────────────── */
 export const I = {
@@ -41,13 +41,13 @@ export const I = {
 };
 
 const PAGES = [
-  { id: 'home', label: 'Home', icon: I.home, route: '#/' },
-  { id: 'movies', label: 'Movies', icon: I.film, route: '#/movies' },
-  { id: 'tv', label: 'TV Shows', icon: I.tv, route: '#/tv' },
-  { id: 'trending', label: 'Trending', icon: I.trend, route: '#/trending' },
-  { id: 'calendar', label: 'Calendar', icon: I.calendar, route: '#/calendar' },
-  { id: 'genres', label: 'Genres', icon: I.genre, route: '#/genres' },
-  { id: 'watchlist', label: 'Watchlist', icon: I.watchlist, route: '#/watchlist' },
+  { id: 'home', label: 'Home', icon: I.home, route: '/' },
+  { id: 'movies', label: 'Movies', icon: I.film, route: '/movies' },
+  { id: 'tv', label: 'TV Shows', icon: I.tv, route: '/tv' },
+  { id: 'trending', label: 'Trending', icon: I.trend, route: '/trending' },
+  { id: 'calendar', label: 'Calendar', icon: I.calendar, route: '/calendar' },
+  { id: 'genres', label: 'Genres', icon: I.genre, route: '/genres' },
+  { id: 'watchlist', label: 'Watchlist', icon: I.watchlist, route: '/watchlist' },
 ];
 
 const PAGE_TITLES = {
@@ -60,7 +60,8 @@ const PAGE_TITLES = {
   watchlist: 'My Watchlist · BEBU',
   search: 'Search · BEBU',
   detail: 'Details · BEBU',
-  watch: 'Watch Player · BEBU'
+  watch: 'Watch Player · BEBU',
+  person: 'Cast & Filmography · BEBU'
 };
 
 const GICONS = {
@@ -77,111 +78,196 @@ const DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
    ROUTER & NAVIGATION (HTML5 History API)
    ═══════════════════════════════════════════════════════════════════ */
 
-export function parseHash() {
-  const hash = window.location.hash || '#/';
-  const clean = hash.replace(/^#\/?/, '');
-  const [path, queryString] = clean.split('?');
-  const segments = path.split('/').filter(Boolean);
-  const params = new URLSearchParams(queryString || '');
-
-  const root = segments[0] || 'home';
-  return {
-    root,
-    segments,
-    params,
-    fullHash: hash
-  };
+export function slugify(text) {
+  if (!text) return '';
+  return String(text)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
 }
 
-export function isSameMedia(hashA, hashB) {
-  if (!hashA || !hashB) return false;
-  const parse = (h) => {
-    const clean = h.replace(/^#\/?/, '').split('?')[0];
-    const parts = clean.split('/');
-    if ((parts[0] === 'detail' || parts[0] === 'watch') && parts[2]) {
-      return `${parts[1]}/${parts[2]}`;
+export function parseRoute() {
+  if (typeof window === 'undefined') {
+    return { root: 'home', segments: [], params: new URLSearchParams(), fullPath: '/' };
+  }
+
+  let fullPath = window.location.pathname || '/';
+  let queryString = window.location.search || '';
+
+  // Backward compatibility: If URL has a hash like #/movie/123 or #detail/movie/123
+  if (window.location.hash) {
+    const rawHash = window.location.hash.replace(/^#\/?/, '');
+    const [hPath, hQuery] = rawHash.split('?');
+    if (hPath) {
+      fullPath = '/' + hPath;
     }
+    if (hQuery) {
+      queryString = '?' + hQuery;
+    }
+    try {
+      window.history.replaceState(null, '', fullPath + queryString);
+    } catch {}
+  }
+
+  // Remove leading and trailing slashes for segment parsing
+  const clean = fullPath.replace(/^\/+|\/+$/g, '');
+  const segments = clean ? clean.split('/') : [];
+  const params = new URLSearchParams(queryString);
+
+  let root = segments[0] || 'home';
+
+  // Normalize /movie/:id/:slug or /tv/:id/:slug to root = 'detail'
+  if (root === 'movie' || (root === 'tv' && segments[1])) {
+    root = 'detail';
+  }
+
+  return { root, segments, params, fullPath };
+}
+
+export const parseHash = parseRoute;
+
+export function isSameMedia(urlA, urlB) {
+  if (!urlA || !urlB) return false;
+  const parse = (u) => {
+    const clean = u.replace(/^#\/?/, '').replace(/^\/+/, '').split('?')[0];
+    const parts = clean.split('/');
+    if (parts[0] === 'movie' || parts[0] === 'tv') return `${parts[0]}/${parts[1]}`;
+    if (parts[0] === 'detail' && parts[2]) return `${parts[1]}/${parts[2]}`;
+    if (parts[0] === 'watch' && parts[2]) return `${parts[1]}/${parts[2]}`;
     return null;
   };
-  const a = parse(hashA);
-  const b = parse(hashB);
+  const a = parse(urlA);
+  const b = parse(urlB);
   return a && b && a === b;
 }
 
-export function navigateTo(hash, replace = false) {
-  const currentHash = (typeof window !== 'undefined' && window.location.hash) || '#/';
-  if (currentHash === hash) return;
+export function navigateTo(url, replace = false) {
+  if (typeof window === 'undefined') return;
+
+  let cleanUrl = url || '/';
+  if (cleanUrl.startsWith('#/')) {
+    cleanUrl = cleanUrl.replace(/^#\/?/, '/');
+  } else if (cleanUrl.startsWith('#')) {
+    cleanUrl = '/' + cleanUrl.replace(/^#/, '');
+  }
+  if (!cleanUrl.startsWith('/')) {
+    cleanUrl = '/' + cleanUrl;
+  }
+
+  const currentUrl = (window.location.pathname || '/') + (window.location.search || '');
+  if (currentUrl === cleanUrl) return;
 
   // Prevent navigation history loop: If toggling between detail and watch for the same media, replace history
-  if (isSameMedia(currentHash, hash)) {
+  if (isSameMedia(currentUrl, cleanUrl)) {
     replace = true;
   }
 
-  if (typeof window !== 'undefined') {
-    if (replace) {
-      window.history.replaceState(null, '', hash);
-      if (State._navStack && State._navStack.length > 0) {
-        State._navStack[State._navStack.length - 1] = hash;
-      }
-    } else {
-      window.history.pushState(null, '', hash);
-      if (!State._navStack) State._navStack = [];
-      State._navStack.push(hash);
+  if (replace) {
+    window.history.replaceState(null, '', cleanUrl);
+    if (State._navStack && State._navStack.length > 0) {
+      State._navStack[State._navStack.length - 1] = cleanUrl;
     }
+  } else {
+    window.history.pushState(null, '', cleanUrl);
+    if (!State._navStack) State._navStack = [];
+    State._navStack.push(cleanUrl);
   }
 
-  const { root } = parseHash();
-  if (['home', 'movies', 'tv', 'trending', 'calendar', 'genres', 'watchlist', 'search'].includes(root)) {
-    State._lastBrowsePage = hash;
+  const { root } = parseRoute();
+  if (['home', 'movies', 'tv', 'trending', 'calendar', 'genres', 'watchlist', 'search', 'person'].includes(root)) {
+    State._lastBrowsePage = cleanUrl;
   }
 
   handleRoute();
 }
 
 export function goBack(fallback) {
-  const currentHash = (typeof window !== 'undefined' && window.location.hash) || '#/';
-  const { root, segments } = parseHash();
+  const { root, segments } = parseRoute();
 
   // If in watch player, unwind to detail view using replaceState so player isn't trapped in back loop
   if (root === 'watch') {
     const type = segments[1] || 'movie';
     const id = segments[2];
-    navigateTo(`#/detail/${type}/${id}`, true);
+    const slug = segments[3] || 'title';
+    navigateTo(`/${type}/${id}/${slug}`, true);
     return;
   }
 
   // If in detail view, return to the browse page the user came from (e.g. home, movies, tv, etc.)
   if (root === 'detail') {
-    const dest = State._lastBrowsePage || fallback || '#/';
+    const dest = State._lastBrowsePage || fallback || '/';
     navigateTo(dest, false);
     return;
   }
 
   // General fallback
-  if (State._lastBrowsePage && State._lastBrowsePage !== currentHash) {
+  const currentUrl = (window.location.pathname || '/') + (window.location.search || '');
+  if (State._lastBrowsePage && State._lastBrowsePage !== currentUrl) {
     navigateTo(State._lastBrowsePage);
   } else if (typeof window !== 'undefined' && window.history.length > 1) {
     window.history.back();
   } else {
-    navigateTo(fallback || '#/');
+    navigateTo(fallback || '/');
+  }
+}
+
+export function go(target, params = {}) {
+  if (typeof target === 'string') {
+    if (target.startsWith('/') || target.startsWith('#')) {
+      navigateTo(target);
+    } else if (target === 'person') {
+      const id = params.id;
+      const slug = slugify(params.name || 'cast');
+      navigateTo(`/person/${id}/${slug}`);
+    } else if (target === 'movie') {
+      const id = params.id;
+      const slug = slugify(params.title || params.name || 'movie');
+      navigateTo(`/movie/${id}/${slug}`);
+    } else if (target === 'tv') {
+      const id = params.id;
+      const slug = slugify(params.name || params.title || 'tv');
+      navigateTo(`/tv/${id}/${slug}`);
+    } else if (target === 'detail') {
+      const t = params.type === 'tv' ? 'tv' : 'movie';
+      const id = params.id;
+      const slug = slugify(params.title || params.name || t);
+      navigateTo(`/${t}/${id}/${slug}`);
+    } else if (target === 'genre') {
+      const id = params.id;
+      const slug = slugify(params.name || 'genre');
+      navigateTo(`/genre/${id}/${slug}`);
+    } else if (target === 'watch') {
+      const t = params.type === 'tv' ? 'tv' : 'movie';
+      const id = params.id;
+      const slug = slugify(params.title || params.name || t);
+      const qs = params.season ? `?season=${params.season}&ep=${params.episode || 1}` : '';
+      navigateTo(`/watch/${t}/${id}/${slug}${qs}`);
+    } else if (target === 'search') {
+      navigateTo(`/search?q=${encodeURIComponent(params.q || '')}`);
+    } else {
+      navigateTo(`/${target}`);
+    }
   }
 }
 
 if (typeof window !== 'undefined') {
   window.navigateTo = navigateTo;
-  window.go = navigateTo;
+  window.go = go;
   window.goBack = goBack;
 }
 
-export function getPageFromRoot(root) {
+export function getPageFromRoot(root, segments = []) {
   switch (root) {
     case '':
     case 'home':
       return 'home';
     case 'movies':
-    case 'movie':
       return 'movies';
     case 'tv':
+      return segments[1] ? 'detail' : 'tv';
     case 'shows':
       return 'tv';
     case 'trending':
@@ -197,7 +283,11 @@ export function getPageFromRoot(root) {
     case 'search':
       return 'search';
     case 'detail':
+    case 'movie':
       return 'detail';
+    case 'person':
+    case 'actor':
+      return 'person';
     case 'watch':
       return 'watch';
     default:
@@ -236,8 +326,8 @@ export async function handleRoute() {
   cleanupCurrentView();
   window.scrollTo({ top: 0, behavior: 'instant' });
 
-  const { root, segments, params } = parseHash();
-  const activePage = getPageFromRoot(root);
+  const { root, segments, params } = parseRoute();
+  const activePage = getPageFromRoot(root, segments);
   State.page = activePage;
 
   // Immediately synchronize active navigation classes without lag or off-by-one errors
@@ -284,7 +374,7 @@ export async function handleRoute() {
       case 'genre': {
         State.page = 'genre';
         const genreId = segments[1];
-        const genreName = decodeURIComponent(segments[2] || 'Genre');
+        const genreName = decodeURIComponent(segments[2] || 'Genre').replace(/-/g, ' ');
         State.genre = genreId;
         State.genreName = genreName;
         document.title = `${genreName} · BEBU`;
@@ -310,8 +400,18 @@ export async function handleRoute() {
 
       case 'detail': {
         State.page = 'detail';
-        const type = segments[1] || 'movie';
-        const id = segments[2];
+        let type = 'movie';
+        let id = null;
+        if (segments[0] === 'detail') {
+          type = segments[1] || 'movie';
+          id = segments[2];
+        } else if (segments[0] === 'movie') {
+          type = 'movie';
+          id = segments[1];
+        } else if (segments[0] === 'tv') {
+          type = 'tv';
+          id = segments[1];
+        }
         State.type = type;
         State.id = +id;
         document.title = PAGE_TITLES.detail;
@@ -319,10 +419,27 @@ export async function handleRoute() {
         break;
       }
 
+      case 'person': {
+        State.page = 'person';
+        const personId = segments[1];
+        const personSlug = segments[2] || 'cast';
+        const personName = decodeURIComponent(personSlug.replace(/-/g, ' '));
+        document.title = `${personName} · Filmography · BEBU`;
+        await renderPagePerson(personId, personName);
+        break;
+      }
+
       case 'watch': {
         State.page = 'watch';
-        const type = segments[1] || 'movie';
-        const id = segments[2];
+        let type = 'movie';
+        let id = null;
+        if (segments[1] === 'movie' || segments[1] === 'tv') {
+          type = segments[1];
+          id = segments[2];
+        } else {
+          type = 'movie';
+          id = segments[1];
+        }
         const season = +(params.get('season') || 1);
         const ep = +(params.get('ep') || 1);
         State.type = type;
@@ -330,7 +447,8 @@ export async function handleRoute() {
         State.season = season;
         State.ep = ep;
         document.title = PAGE_TITLES.watch;
-        await renderPageWatch(id, type, season, ep);
+        await renderPageDetail(id, type);
+        openPlayerModal({ id, type, season, episode: ep, resume: true });
         break;
       }
 
@@ -365,7 +483,7 @@ export function renderNavbar() {
   if (!nb) return;
 
   nb.innerHTML = `
-    <div class="logo-wrap" onclick="navigateTo('#/')">
+    <div class="logo-wrap" onclick="navigateTo('/')">
       <div class="logo-icon">B</div>
       <div class="logo-text">BEBU<span style="-webkit-text-fill-color:rgba(245,245,252,0.4)">_</span>ZONE</div>
     </div>
@@ -380,6 +498,9 @@ export function renderNavbar() {
         <input id="srch-inp" type="text" placeholder="Search movies, shows…" autocomplete="off" value="${State.query || ''}" />
         <div id="sdrop"></div>
       </div>
+      <button class="btn-surprise" onclick="window.surpriseMe()" title="Surprise Me (Roll random title)">
+        🎲 <span class="hide-mobile">Surprise Me</span>
+      </button>
       <button class="btn btn-out btn-sm" onclick="window.openDataModal()" title="Backup & Restore Data">
         ${I.backup} <span class="hide-mobile">Backup</span>
       </button>
@@ -412,7 +533,7 @@ export function renderNavbar() {
         const q = e.target.value.trim();
         if (q) {
           closeSearchDrop();
-          navigateTo(`#/search?q=${encodeURIComponent(q)}`);
+          navigateTo(`/search?q=${encodeURIComponent(q)}`);
         }
       } else if (e.key === 'Escape') {
         closeSearchDrop();
@@ -461,8 +582,9 @@ function showSearchDrop(items, query) {
   drop.innerHTML = items.map(item => {
     const t = mty(item);
     registerItem(item);
+    const slug = slugify(gt(item) || 'title');
     return `
-      <div class="sd-row" onclick="navigateTo('#/detail/${t}/${item.id}'); closeSearchDrop();">
+      <div class="sd-row" onclick="navigateTo('/${t}/${item.id}/${slug}'); closeSearchDrop();">
         <img class="sd-img" src="${IM.poster(item.poster_path, 'w92')}" alt="${gt(item)}" loading="lazy" />
         <div style="flex:1;min-width:0">
           <div class="sd-title">${gt(item)}</div>
@@ -473,7 +595,7 @@ function showSearchDrop(items, query) {
     `;
   }).join('') + `
     <div class="sd-row" style="justify-content:center;color:var(--red);font-size:0.82rem;font-weight:700;gap:6px" 
-         onclick="navigateTo('#/search?q=${encodeURIComponent(query)}'); closeSearchDrop();">
+         onclick="navigateTo('/search?q=${encodeURIComponent(query)}'); closeSearchDrop();">
       ${I.search} View all results
     </div>
   `;
@@ -534,13 +656,15 @@ export function renderCard(item, { type = null, wide = false } = {}) {
   const poster = wide 
     ? (IM.backdrop(item.backdrop_path, 'w500') || IM.poster(item.poster_path))
     : IM.poster(item.poster_path);
+  const slug = slugify(gt(item) || 'title');
+  const targetUrl = `/${t}/${item.id}/${slug}`;
 
   return `
     <div class="card ${wide ? 'card-wide' : ''}" 
          data-card-id="${item.id}"
-         onclick="navigateTo('#/detail/${t}/${item.id}')"
+         onclick="navigateTo('${targetUrl}')"
          role="button" tabindex="0"
-         onkeydown="if(event.key==='Enter') navigateTo('#/detail/${t}/${item.id}')">
+         onkeydown="if(event.key==='Enter') navigateTo('${targetUrl}')">
       <img class="card-img" src="${poster}" alt="${gt(item).replace(/"/g, '&quot;')}" loading="lazy" />
       <div class="card-ovl"></div>
       <div class="card-play">${I.playFilled}</div>
@@ -548,6 +672,11 @@ export function renderCard(item, { type = null, wide = false } = {}) {
       <div class="card-qual-wrap">${getQualityBadge(item)}</div>
       
       <div class="card-actions">
+        <button class="card-trailer-btn" 
+                onclick="event.stopPropagation(); window.quickTrailer(${item.id}, '${t}');" 
+                title="Watch Trailer">
+          ${I.trailer}
+        </button>
         <button class="card-fav ${isSaved ? 'saved' : ''}" 
                 data-fid="${item.id}" 
                 onclick="event.stopPropagation(); window.handleToggleWatchlist(${item.id});" 
@@ -576,15 +705,20 @@ export function renderContinueWatchingCard(item) {
   const poster = IM.backdrop(item.backdrop_path, 'w500') || IM.poster(item.poster_path);
 
   return `
-    <div class="rec-wrap" id="cw-${item.id}">
-      <div class="card card-wide" 
-           onclick="State._fromCW = true; navigateTo('#/watch/${t}/${item.id}?season=${prg?.s || 1}&ep=${prg?.ep || 1}')">
+    <div class="rec-wrap" id="cw-${item.id}" 
+         onclick="window.openPlayerModal({ id: ${item.id}, type: '${t}', season: ${prg?.s || 1}, episode: ${prg?.ep || 1}, resume: true })">
+      <div class="card card-wide">
         <img class="card-img" src="${poster}" alt="${gt(item)}" loading="lazy" />
         <div class="card-ovl"></div>
         <div class="card-play">${I.playFilled}</div>
         <span class="card-badge">${t === 'tv' ? 'TV' : 'FILM'}</span>
         <button class="rec-remove" onclick="event.stopPropagation(); window.handleRemoveCW(${item.id});" title="Remove">✕</button>
         <div class="card-actions">
+          <button class="card-trailer-btn" 
+                  onclick="event.stopPropagation(); window.quickTrailer(${item.id}, '${t}');" 
+                  title="Watch Trailer">
+            ${I.trailer}
+          </button>
           <button class="card-fav ${isSaved ? 'saved' : ''}" 
                   data-fid="${item.id}" 
                   onclick="event.stopPropagation(); window.handleToggleWatchlist(${item.id});">
@@ -612,10 +746,12 @@ export function renderHistoryCard(item) {
   registerItem({ ...item, media_type: t });
   const isSaved = isInWatchlist(item.id);
   const prg = getProgress(item.id);
+  const slug = slugify(gt(item) || 'title');
+  const targetUrl = `/${t}/${item.id}/${slug}`;
 
   return `
     <div class="rec-wrap" id="rec-${item.id}">
-      <div class="card" onclick="navigateTo('#/detail/${t}/${item.id}')">
+      <div class="card" onclick="navigateTo('${targetUrl}')">
         <img class="card-img" src="${IM.poster(item.poster_path)}" alt="${gt(item)}" loading="lazy" />
         <div class="card-ovl"></div>
         <div class="card-play">${I.playFilled}</div>
@@ -623,6 +759,11 @@ export function renderHistoryCard(item) {
         <div class="card-qual-wrap">${getQualityBadge(item)}</div>
         <button class="rec-remove" onclick="event.stopPropagation(); window.handleRemoveHistory(${item.id});" title="Remove">✕</button>
         <div class="card-actions">
+          <button class="card-trailer-btn" 
+                  onclick="event.stopPropagation(); window.quickTrailer(${item.id}, '${t}');" 
+                  title="Watch Trailer">
+            ${I.trailer}
+          </button>
           <button class="card-fav ${isSaved ? 'saved' : ''}" 
                   data-fid="${item.id}" 
                   onclick="event.stopPropagation(); window.handleToggleWatchlist(${item.id});">
@@ -645,8 +786,10 @@ export function renderHistoryCard(item) {
 export function renderTop10Card(item, rank, type) {
   const t = type || mty(item);
   registerItem({ ...item, media_type: t });
+  const slug = slugify(gt(item) || 'title');
+  const targetUrl = `/${t}/${item.id}/${slug}`;
   return `
-    <div class="t10-wrap" onclick="navigateTo('#/detail/${t}/${item.id}')">
+    <div class="t10-wrap" onclick="navigateTo('${targetUrl}')">
       <div class="t10-num">${rank}</div>
       <div class="t10-card">
         <img class="t10-img" src="${IM.poster(item.poster_path)}" alt="${gt(item)}" loading="lazy" />
@@ -797,6 +940,7 @@ function renderHeroHTML(idx) {
   const t = mty(item);
   const bd = IM.backdrop(item.backdrop_path, 'original');
   const prg = getProgress(item.id);
+  const slug = slugify(gt(item) || 'title');
 
   return `
     <div class="hero">
@@ -813,10 +957,10 @@ function renderHeroHTML(idx) {
           </div>
           <div class="hero-desc" id="h-dsc">${item.overview || ''}</div>
           <div class="hero-btns">
-            <button class="btn btn-red" id="h-bw" onclick="navigateTo('#/watch/${t}/${item.id}?season=${prg?.s || 1}&ep=${prg?.ep || 1}')">
+            <button class="btn btn-red" id="h-bw" onclick="navigateTo('/watch/${t}/${item.id}/${slug}?season=${prg?.s || 1}&ep=${prg?.ep || 1}')">
               ${I.play} ${prg && prg.pct > 5 ? 'Continue Watching' : 'Watch Now'}
             </button>
-            <button class="btn btn-dim" id="h-bi" onclick="navigateTo('#/detail/${t}/${item.id}')">
+            <button class="btn btn-dim" id="h-bi" onclick="navigateTo('/${t}/${item.id}/${slug}')">
               ${I.info} More Info
             </button>
             <button class="btn btn-out btn-ico" data-fid="${item.id}" onclick="window.handleToggleWatchlist(${item.id})">
@@ -850,6 +994,7 @@ function updateHeroSlide(idx) {
   const t = mty(item);
   const bd = IM.backdrop(item.backdrop_path, 'original');
   const prg = getProgress(item.id);
+  const slug = slugify(gt(item) || 'title');
 
   const bg = document.getElementById('hero-bg');
   if (bg && bd) {
@@ -883,12 +1028,12 @@ function updateHeroSlide(idx) {
 
     const bw = document.getElementById('h-bw');
     if (bw) {
-      bw.setAttribute('onclick', `navigateTo('#/watch/${t}/${item.id}?season=${prg?.s || 1}&ep=${prg?.ep || 1}')`);
+      bw.setAttribute('onclick', `navigateTo('/watch/${t}/${item.id}/${slug}?season=${prg?.s || 1}&ep=${prg?.ep || 1}')`);
       bw.innerHTML = `${I.play} ${prg && prg.pct > 5 ? 'Continue Watching' : 'Watch Now'}`;
     }
 
     const bi = document.getElementById('h-bi');
-    if (bi) bi.setAttribute('onclick', `navigateTo('#/detail/${t}/${item.id}')`);
+    if (bi) bi.setAttribute('onclick', `navigateTo('/${t}/${item.id}/${slug}')`);
 
     info.querySelectorAll('[data-fid]').forEach(btn => {
       btn.dataset.fid = item.id;
@@ -979,7 +1124,7 @@ async function renderPageHome() {
         ${buildHero(trending.results || [])}
         ${cwSection}
         ${historySection}
-        ${renderRow('tr', '🔥 Trending This Week', (trending.results || []).slice(0, 18), { seeAllRoute: '#/trending' })}
+        ${renderRow('tr', '🔥 Trending This Week', (trending.results || []).slice(0, 18), { seeAllRoute: '/trending' })}
         ${renderTop10Row('pm', '🏆 Top 10 Movies Today', (popMovies.results || []).slice(0, 10), 'movie')}
         <div id="home-secondary-rows"></div>
       </div>
@@ -992,9 +1137,9 @@ async function renderPageHome() {
       const secContainer = document.getElementById('home-secondary-rows');
       if (secContainer && State.page === 'home') {
         secContainer.innerHTML = `
-          ${renderRow('pm', '🎬 Popular Movies', (popMovies.results || []).slice(0, 18), { type: 'movie', seeAllRoute: '#/movies' })}
+          ${renderRow('pm', '🎬 Popular Movies', (popMovies.results || []).slice(0, 18), { type: 'movie', seeAllRoute: '/movies' })}
           ${renderTop10Row('pt', '📺 Top 10 TV Shows Today', (popTV.results || []).slice(0, 10), 'tv')}
-          ${renderRow('pt', '📺 Popular TV Shows', (popTV.results || []).slice(0, 18), { type: 'tv', seeAllRoute: '#/tv' })}
+          ${renderRow('pt', '📺 Popular TV Shows', (popTV.results || []).slice(0, 18), { type: 'tv', seeAllRoute: '/tv' })}
           ${renderRow('tm', '⭐ Top Rated Movies', (topMovies.results || []).slice(0, 18), { type: 'movie' })}
           ${renderRow('ttv', '⭐ Top Rated TV Shows', (topTV.results || []).slice(0, 18), { type: 'tv' })}
           ${renderRow('np', '🎭 Now In Theaters', (inTheaters.results || []).slice(0, 18), { type: 'movie' })}
@@ -1412,14 +1557,17 @@ function buildCalendarPageHTML(year, month, viewStart, viewEnd) {
            onclick="window.selectCalendarDay('${ds}')">
         <div class="cal-day-n">${day.getDate()}</div>
         <div class="cal-items">
-          ${show.map(item => `
+          ${show.map(item => {
+            const slug = slugify(gt(item) || 'title');
+            return `
             <div class="cal-item" 
-                 onclick="event.stopPropagation(); navigateTo('#/detail/${item.media_type}/${item.id}')" 
+                 onclick="event.stopPropagation(); navigateTo('/${item.media_type}/${item.id}/${slug}')" 
                  title="${gt(item).replace(/"/g, '&quot;')}">
               <img src="${IM.poster(item.poster_path, 'w92')}" loading="lazy" />
               <div class="cal-item-ty ${item.media_type === 'tv' ? 'tv' : 'mov'}"></div>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
           ${more > 0 ? `<div class="cal-more" onclick="event.stopPropagation(); window.selectCalendarDay('${ds}')">+${more}</div>` : ''}
         </div>
       </div>
@@ -1514,8 +1662,10 @@ function renderCalendarDayDetail(ds) {
       </div>
       ${rels.length ? `
         <div class="cal-releases">
-          ${rels.map(item => `
-            <div class="cal-release" onclick="navigateTo('#/detail/${item.media_type}/${item.id}')">
+          ${rels.map(item => {
+            const slug = slugify(gt(item) || 'title');
+            return `
+            <div class="cal-release" onclick="navigateTo('/${item.media_type}/${item.id}/${slug}')">
               <div class="cal-rel-pw">
                 <img class="cal-rel-p" src="${IM.poster(item.poster_path, 'w342')}" alt="${gt(item)}" loading="lazy" />
                 <span class="cal-rel-badge ${item.media_type === 'tv' ? 'tv' : 'mov'}">${item.media_type === 'tv' ? 'TV' : 'FILM'}</span>
@@ -1528,7 +1678,8 @@ function renderCalendarDayDetail(ds) {
                 <button class="btn btn-red btn-sm" style="margin-top:10px">More Info</button>
               </div>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       ` : `<div class="cal-empty">No major movie or television releases on this date.</div>`}
     </div>
@@ -1560,8 +1711,10 @@ function renderCalendarListView(viewStart, viewEnd, month) {
         <div class="cal-det-count">${rels.length} release${rels.length !== 1 ? 's' : ''}</div>
       </div>
       <div class="cal-releases">
-        ${rels.map(item => `
-          <div class="cal-release" onclick="navigateTo('#/detail/${item.media_type}/${item.id}')">
+        ${rels.map(item => {
+          const slug = slugify(gt(item) || 'title');
+          return `
+          <div class="cal-release" onclick="navigateTo('/${item.media_type}/${item.id}/${slug}')">
             <div class="cal-rel-pw">
               <img class="cal-rel-p" src="${IM.poster(item.poster_path, 'w342')}" alt="${gt(item)}" loading="lazy" />
               <span class="cal-rel-badge ${item.media_type === 'tv' ? 'tv' : 'mov'}">${item.media_type === 'tv' ? 'TV' : 'FILM'}</span>
@@ -1572,7 +1725,8 @@ function renderCalendarListView(viewStart, viewEnd, month) {
               <div class="cal-rel-ov">${item.overview || ''}</div>
             </div>
           </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>
     </div>
   `).join('');
@@ -1752,8 +1906,10 @@ function buildScheduleContentHTML(monday) {
   const eps = State.calSchedData[State.calSchedDay] || [];
   const epCards = eps.length ? `
     <div class="sched-ep-list">
-      ${eps.map(ep => `
-        <div class="sched-ep-card" onclick="navigateTo('#/detail/tv/${ep.showId}')">
+      ${eps.map(ep => {
+        const slug = slugify(ep.showName || 'tv');
+        return `
+        <div class="sched-ep-card" onclick="navigateTo('/tv/${ep.showId}/${slug}')">
           ${ep.epStill ? `<img class="sched-ep-still" src="${IM.still(ep.epStill)}" loading="lazy" />` : `<img class="sched-ep-poster" src="${IM.poster(ep.showPoster, 'w342')}" loading="lazy" />`}
           <div class="sched-ep-body">
             <div class="sched-ep-show">${ep.showName}</div>
@@ -1761,7 +1917,8 @@ function buildScheduleContentHTML(monday) {
             <div class="sched-ep-num">Season ${ep.epSeason} · Episode ${ep.epNum}</div>
           </div>
         </div>
-      `).join('')}
+        `;
+      }).join('')}
     </div>
   ` : `<div class="cal-empty">No episode airings found for this day. Select a different date.</div>`;
 
@@ -1791,8 +1948,10 @@ window.selectScheduleDay = (ds) => {
     const eps = State.calSchedData[ds] || [];
     container.innerHTML = eps.length ? `
       <div class="sched-ep-list">
-        ${eps.map(ep => `
-          <div class="sched-ep-card" onclick="navigateTo('#/detail/tv/${ep.showId}')">
+        ${eps.map(ep => {
+          const slug = slugify(ep.showName || 'tv');
+          return `
+          <div class="sched-ep-card" onclick="navigateTo('/tv/${ep.showId}/${slug}')">
             ${ep.epStill ? `<img class="sched-ep-still" src="${IM.still(ep.epStill)}" loading="lazy" />` : `<img class="sched-ep-poster" src="${IM.poster(ep.showPoster, 'w342')}" loading="lazy" />`}
             <div class="sched-ep-body">
               <div class="sched-ep-show">${ep.showName}</div>
@@ -1800,7 +1959,8 @@ window.selectScheduleDay = (ds) => {
               <div class="sched-ep-num">Season ${ep.epSeason} · Episode ${ep.epNum}</div>
             </div>
           </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>
     ` : `<div class="cal-empty">No episode airings found for this day.</div>`;
   }
@@ -1842,13 +2002,16 @@ async function renderPageGenres() {
           <div class="pg-sub">Explore tailored collections by category and themes</div>
         </div>
         <div class="genre-grid">
-          ${[...genreMap.entries()].map(([id, name]) => `
-            <div class="genre-chip" onclick="navigateTo('#/genre/${id}/${encodeURIComponent(name)}')">
+          ${[...genreMap.entries()].map(([id, name]) => {
+            const slug = slugify(name || 'genre');
+            return `
+            <div class="genre-chip" onclick="navigateTo('/genre/${id}/${slug}')">
               <span class="genre-ico">${GICONS[id] || '🎬'}</span>
               <div class="genre-name">${name}</div>
               <div class="genre-type">Movies &amp; Series</div>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
         ${renderFooter()}
       </div>
@@ -1860,26 +2023,60 @@ async function renderPageGenres() {
 
 async function renderPageGenreResults(genreId, genreName) {
   let mediaType = 'movie';
+  let sortOption = 'popularity.desc';
   let page = 1;
   let items = [];
   let loading = false;
+
+  const SORT_FILTERS = [
+    { id: 'popularity.desc', label: '🔥 Popular', extra: {} },
+    { id: 'vote_average.desc', label: '📈 Top Rated', extra: { 'vote_count.gte': 200 } },
+    { id: 'newest', label: '📅 Newest', extra: {} },
+    { id: 'vote_count.desc', label: '🏆 Most Voted', extra: {} }
+  ];
+
+  function getSortByValue() {
+    if (sortOption === 'newest') {
+      return mediaType === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc';
+    }
+    return sortOption;
+  }
+
+  function getExtraParams() {
+    const found = SORT_FILTERS.find(f => f.id === sortOption);
+    return found?.extra || {};
+  }
 
   const main = document.getElementById('main');
   main.innerHTML = `
     <div>
       <div class="pg-hd">
-        <button class="btn btn-out btn-sm" onclick="navigateTo('#/genres')" style="margin-bottom:12px">
+        <button class="btn btn-out btn-sm" onclick="navigateTo('/genres')" style="margin-bottom:12px">
           ${I.chevronLeft} All Genres
         </button>
         <div class="pg-title">${GICONS[genreId] || '🎬'} ${genreName}</div>
-        <div class="pg-sub">Browse top-rated ${genreName} movies and television shows</div>
+        <div class="pg-sub">Browse top ${genreName} movies and television shows with customized sorting</div>
       </div>
-      <div class="filter-bar">
+
+      <div class="filter-bar" style="gap:16px;flex-wrap:wrap">
+        <!-- Media Type Selector -->
         <div class="filter-group">
           <div class="fbb on" data-gt="movie" onclick="window.setGenreMediaType('movie')">🎬 Movies</div>
           <div class="fbb" data-gt="tv" onclick="window.setGenreMediaType('tv')">📺 TV Shows</div>
         </div>
+
+        <!-- Multi-Attribute Sort Filters -->
+        <div class="filter-group" id="genre-sort-group">
+          ${SORT_FILTERS.map(f => `
+            <div class="fbb ${sortOption === f.id ? 'on' : ''}" 
+                 data-sort="${f.id}" 
+                 onclick="window.setGenreSortFilter('${f.id}')">
+              ${f.label}
+            </div>
+          `).join('')}
+        </div>
       </div>
+
       <div class="section" style="padding-top:0">
         <div class="cgrid" id="genre-grid">${renderSkeletons(18)}</div>
         <div style="text-align:center;padding:30px 0">
@@ -1897,8 +2094,11 @@ async function renderPageGenreResults(genreId, genreName) {
     loading = true;
     try {
       const isFirst = page === 1;
+      const sortBy = getSortByValue();
+      const extra = getExtraParams();
+
       if (isFirst) {
-        const pages = await Promise.all([1, 2, 3].map(p => API.byGenre(mediaType, genreId, p)));
+        const pages = await Promise.all([1, 2, 3].map(p => API.byGenre(mediaType, genreId, p, sortBy, extra)));
         const seen = new Set();
         pages.forEach(d => {
           (d.results || []).forEach(item => {
@@ -1910,11 +2110,15 @@ async function renderPageGenreResults(genreId, genreName) {
         });
         page = 4;
         const grid = document.getElementById('genre-grid');
-        if (grid) grid.innerHTML = items.map(m => renderCard(m, { type: mediaType })).join('');
+        if (grid) {
+          grid.innerHTML = items.length 
+            ? items.map(m => renderCard(m, { type: mediaType })).join('') 
+            : '<div style="color:var(--txt3);padding:40px 0;text-align:center;grid-column:1/-1">No titles found for this filter combination.</div>';
+        }
         const moreBtn = document.getElementById('genre-more-btn');
         if (moreBtn) moreBtn.style.display = page <= (pages[0]?.total_pages || 1) ? 'inline-flex' : 'none';
       } else {
-        const d = await API.byGenre(mediaType, genreId, page);
+        const d = await API.byGenre(mediaType, genreId, page, sortBy, extra);
         (d.results || []).forEach(item => items.push(registerItem({ ...item, media_type: mediaType })));
         const grid = document.getElementById('genre-grid');
         if (grid) grid.innerHTML = items.map(m => renderCard(m, { type: mediaType })).join('');
@@ -1923,16 +2127,28 @@ async function renderPageGenreResults(genreId, genreName) {
         page++;
       }
     } catch (err) {
-      console.warn(err);
+      console.warn('[Genre Results Error]', err);
     }
     loading = false;
   }
 
   window.setGenreMediaType = async (type) => {
+    if (mediaType === type) return;
     mediaType = type;
     page = 1;
     items = [];
     document.querySelectorAll('[data-gt]').forEach(f => f.classList.toggle('on', f.dataset.gt === type));
+    const grid = document.getElementById('genre-grid');
+    if (grid) grid.innerHTML = renderSkeletons(18);
+    await loadItems();
+  };
+
+  window.setGenreSortFilter = async (sortId) => {
+    if (sortOption === sortId) return;
+    sortOption = sortId;
+    page = 1;
+    items = [];
+    document.querySelectorAll('#genre-sort-group [data-sort]').forEach(f => f.classList.toggle('on', f.dataset.sort === sortId));
     const grid = document.getElementById('genre-grid');
     if (grid) grid.innerHTML = renderSkeletons(18);
     await loadItems();
@@ -2003,7 +2219,7 @@ function renderPageWatchlist() {
         ` : `
           ${renderEmptyState('🎬', 'Your Watchlist is Empty', 'Click the bookmark icon on any poster or detail view to save titles for later.')}
           <div style="text-align:center;margin-top:20px">
-            <button class="btn btn-red" onclick="navigateTo('#/')">Browse Titles</button>
+            <button class="btn btn-red" onclick="navigateTo('/')">Browse Titles</button>
           </div>
         `}
       </div>
@@ -2104,8 +2320,8 @@ async function renderPageDetail(id, type) {
               ` : ''}
 
               <div class="det-actions">
-                <button class="btn btn-red" onclick="navigateTo('#/watch/${type}/${det.id}?season=${prg?.s || 1}&ep=${prg?.ep || 1}')">
-                  ${I.play} ${prg && prg.pct > 5 ? `Continue Watching (${Math.round(prg.pct)}%)` : 'Watch Now'}
+                <button class="btn btn-red" onclick="window.openPlayerModal({ id: ${det.id}, type: '${type}', season: ${prg?.s || 1}, episode: ${prg?.ep || 1}, resume: ${Boolean(prg && prg.pct > 5)} })">
+                  ${I.play} ${prg && prg.pct > 5 ? `Resume ${type === 'tv' ? `S${prg.s}·E${prg.ep}` : ''} (${Math.round(prg.pct)}%)` : 'Watch Now'}
                 </button>
                 ${trailer ? `
                   <button class="btn btn-dim" onclick="window.openTrailerModal('${trailer.key}')">
@@ -2131,7 +2347,11 @@ async function renderPageDetail(id, type) {
             <div class="sec-hd"><div class="sec-title">Top Billed Cast</div></div>
             <div class="cast-row">
               ${cast.map(p => `
-                <div class="cast-card">
+                <div class="cast-card" 
+                     role="button" tabindex="0"
+                     onclick="go('person', { id: ${p.id}, name: '${(p.name || '').replace(/'/g, "\\'")}' })"
+                     onkeydown="if(event.key==='Enter') go('person', { id: ${p.id}, name: '${(p.name || '').replace(/'/g, "\\'")}' })"
+                     title="View ${p.name || 'Cast'} Filmography">
                   <img class="cast-photo" src="${IM.profile(p.profile_path)}" alt="${p.name}" loading="lazy" />
                   <div class="cast-name">${p.name}</div>
                   <div class="cast-char">${p.character || ''}</div>
@@ -2188,7 +2408,7 @@ window.loadDetailEpisodes = async (tvId, seasonNumber) => {
   try {
     const data = await API.season(tvId, seasonNumber);
     grid.innerHTML = (data.episodes || []).map(ep => `
-      <div class="ep-card" onclick="navigateTo('#/watch/tv/${tvId}?season=${seasonNumber}&ep=${ep.episode_number}')">
+      <div class="ep-card" onclick="window.openPlayerModal({ id: ${tvId}, type: 'tv', season: ${seasonNumber}, episode: ${ep.episode_number} })">
         <img class="ep-thumb" src="${IM.still(ep.still_path)}" loading="lazy" />
         <div style="min-width:0">
           <div class="ep-num">S${seasonNumber} · E${ep.episode_number} ${ep.runtime ? `· ${ep.runtime}m` : ''}</div>
@@ -2248,8 +2468,9 @@ async function loadFranchiseCollection(colId, currentMovieId) {
             else if (prg && prg.pct > 5) statusBadge = `<span class="col-badge progress">${Math.round(prg.pct)}% Watched</span>`;
             else if (isUnreleased) statusBadge = `<span class="col-badge unwatched">Coming Soon</span>`;
 
+            const partSlug = slugify(part.title || 'movie');
             return `
-              <div class="col-wrap" onclick="navigateTo('#/detail/movie/${part.id}')">
+              <div class="col-wrap" onclick="navigateTo('/movie/${part.id}/${partSlug}')">
                 <div class="col-card ${isCur ? 'current' : ''}">
                   <img class="col-img" src="${IM.poster(part.poster_path)}" alt="${part.title}" loading="lazy" />
                   <div class="col-ovl"></div>
@@ -2324,20 +2545,20 @@ async function renderPageWatch(id, type, season, ep) {
         State.season = nextS;
         State.ep = nextE;
         if (typeof window !== 'undefined') {
-          window.history.replaceState(null, '', `#/watch/tv/${id}?season=${nextS}&ep=${nextE}`);
+          window.history.replaceState(null, '', `/watch/tv/${id}/${slugify(title)}?season=${nextS}&ep=${nextE}`);
         }
         const sub = document.querySelector('.watch-sub');
         if (sub) sub.textContent = `Season ${nextS} · Episode ${nextE}`;
       },
       onClose: () => {
-        window.goBack(`#/detail/${type}/${id}`);
+        window.goBack(`/${type}/${id}/${slugify(title)}`);
       }
     });
 
     main.innerHTML = `
       <div>
         <div class="watch-bar">
-          <button class="btn btn-out btn-sm" onclick="window.goBack('#/detail/${type}/${id}')">
+          <button class="btn btn-out btn-sm" onclick="window.goBack('/${type}/${id}/${slugify(title)}')">
             ${I.chevronLeft} Detail View
           </button>
           <div style="flex:1;min-width:0">
@@ -2415,11 +2636,12 @@ window.loadWatchEpisodes = async (tvId, s, currentEp) => {
 
   try {
     const data = await API.season(tvId, s);
+    const showSlug = slugify(title || 'tv');
     grid.innerHTML = (data.episodes || []).map(episode => {
       const isCur = episode.episode_number === currentEp && s === State.season;
       return `
         <div class="ep-card ${isCur ? 'playing' : ''}" 
-             onclick="navigateTo('#/watch/tv/${tvId}?season=${s}&ep=${episode.episode_number}')">
+             onclick="navigateTo('/watch/tv/${tvId}/${showSlug}?season=${s}&ep=${episode.episode_number}')">
           <img class="ep-thumb" src="${IM.still(episode.still_path)}" loading="lazy" />
           <div style="min-width:0">
             <div class="ep-num">S${s} · E${episode.episode_number} ${isCur ? '▶ Currently Playing' : ''}</div>
@@ -2431,6 +2653,189 @@ window.loadWatchEpisodes = async (tvId, s, currentEp) => {
     }).join('');
   } catch {
     grid.innerHTML = '';
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   ACTOR / CAST MEMBER FILMOGRAPHY VIEW
+   ═══════════════════════════════════════════════════════════════════ */
+
+export async function renderPagePerson(personId, personName) {
+  const main = document.getElementById('main');
+  if (!main) return;
+  main.innerHTML = `<div class="spin-wrap"><div class="spinner"></div></div>`;
+
+  try {
+    const data = await API.person(personId);
+    if (!data || (!data.name && !data.id)) {
+      throw new Error('Actor profile not found');
+    }
+
+    const name = data.name || decodeURIComponent(personName) || 'Cast Member';
+    const profileImg = data.profile_path ? IM.poster(data.profile_path, 'w500') : IM.profile(null);
+    const department = data.known_for_department || 'Acting';
+    const birthday = data.birthday ? fd(data.birthday) : '';
+    const deathday = data.deathday ? ` – ${fd(data.deathday)}` : '';
+    const birthPlace = data.place_of_birth || '';
+    const bio = data.biography ? data.biography.trim() : '';
+
+    // Extract & deduplicate combined credits
+    const rawCredits = (data.combined_credits?.cast || []).filter(c => c && (c.title || c.name) && (c.poster_path || c.backdrop_path));
+    const seen = new Set();
+    const credits = [];
+    for (const c of rawCredits) {
+      const mType = c.media_type || (c.title ? 'movie' : 'tv');
+      const key = `${mType}_${c.id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        credits.push({ ...c, media_type: mType });
+      }
+    }
+
+    // Default sorting: popularity desc
+    credits.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+
+    window._personCredits = credits;
+    window._personActiveFilter = 'all';
+    window._personActiveSort = 'pop';
+
+    main.innerHTML = `
+      <div style="padding-top: calc(var(--nav) + 16px); min-height: 80vh;">
+        <div style="padding: 0 5%; margin-bottom: 20px;">
+          <button class="det-back" style="position:static" onclick="window.goBack()">
+            ${I.chevronLeft} Back
+          </button>
+        </div>
+
+        <div class="person-hero">
+          <div class="person-grid">
+            <img class="person-poster" src="${profileImg}" alt="${name.replace(/"/g, '&quot;')}" />
+            <div class="person-info">
+              <div class="gpill" style="display:inline-block;margin-bottom:12px">${department}</div>
+              <h1 class="person-name">${name}</h1>
+              
+              <div class="person-meta">
+                ${birthday ? `
+                  <div class="dmi">
+                    ${I.calendar}
+                    <div>
+                      <span class="dml">Born</span>
+                      <span class="dmv">${birthday}${deathday}</span>
+                    </div>
+                  </div>
+                ` : ''}
+                ${birthPlace ? `
+                  <div class="dmi">
+                    <div>
+                      <span class="dml">Birthplace</span>
+                      <span class="dmv">${birthPlace}</span>
+                    </div>
+                  </div>
+                ` : ''}
+                <div class="dmi">
+                  ${I.film}
+                  <div>
+                    <span class="dml">Known Credits</span>
+                    <span class="dmv">${credits.length} Titles</span>
+                  </div>
+                </div>
+              </div>
+
+              ${bio ? `
+                <div class="person-bio" id="person-bio">
+                  ${bio.length > 500 ? `
+                    <span id="bio-short">${bio.slice(0, 480)}…</span>
+                    <span id="bio-full" style="display:none">${bio}</span>
+                    <button class="btn btn-dim btn-sm" style="margin-top:8px;padding:4px 10px;font-size:0.75rem" onclick="const f=document.getElementById('bio-full'),s=document.getElementById('bio-short'); if(f.style.display==='none'){f.style.display='inline';s.style.display='none';this.textContent='Show Less';}else{f.style.display='none';s.style.display='inline';this.textContent='Read More';}">Read More</button>
+                  ` : bio}
+                </div>
+              ` : '<div class="person-bio" style="font-style:italic">No biography recorded for this artist.</div>'}
+            </div>
+          </div>
+        </div>
+
+        <div class="person-credits-hd" style="margin-top:36px">
+          <div>
+            <div class="sec-title" id="person-credits-title">Filmography (${credits.length})</div>
+            <div style="font-size:0.8rem;color:var(--txt3);margin-top:2px">Movies &amp; TV Appearances</div>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <div class="cmt-wrap" style="display:flex;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--r-full);padding:3px;gap:2px">
+              <button class="cmt on" id="pfilter-all" onclick="window.filterPersonCredits('all')">All (${credits.length})</button>
+              <button class="cmt" id="pfilter-movie" onclick="window.filterPersonCredits('movie')">Movies (${credits.filter(c => c.media_type === 'movie').length})</button>
+              <button class="cmt" id="pfilter-tv" onclick="window.filterPersonCredits('tv')">TV Series (${credits.filter(c => c.media_type === 'tv').length})</button>
+            </div>
+
+            <div class="sort-select-wrap">
+              <span class="sort-lbl">Sort by</span>
+              <select class="sort-select" onchange="window.sortPersonCredits(this.value)">
+                <option value="pop" selected>Most Popular</option>
+                <option value="rating">Top Rated</option>
+                <option value="newest">Newest Release</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="cgrid" id="person-credits-grid" style="padding: 0 5% 48px;">
+          ${credits.length ? credits.map(item => renderCard(item)).join('') : renderEmptyState('🎬', 'No Credits Available', 'No films or television shows found for this person.')}
+        </div>
+
+        ${renderFooter()}
+      </div>
+    `;
+  } catch (err) {
+    console.error('[Person View Error]', err);
+    main.innerHTML = renderErrorState('Failed to load cast member filmography.', true);
+  }
+}
+window.renderPagePerson = renderPagePerson;
+
+window.filterPersonCredits = (type) => {
+  window._personActiveFilter = type;
+  document.querySelectorAll('.person-credits-hd .cmt').forEach(b => {
+    b.classList.toggle('on', b.id === `pfilter-${type}`);
+  });
+  window.updatePersonCreditsDOM();
+};
+
+window.sortPersonCredits = (sortMode) => {
+  window._personActiveSort = sortMode;
+  window.updatePersonCreditsDOM();
+};
+
+window.updatePersonCreditsDOM = () => {
+  const grid = document.getElementById('person-credits-grid');
+  const titleEl = document.getElementById('person-credits-title');
+  if (!grid || !window._personCredits) return;
+
+  let items = [...window._personCredits];
+  if (window._personActiveFilter === 'movie') {
+    items = items.filter(c => c.media_type === 'movie');
+  } else if (window._personActiveFilter === 'tv') {
+    items = items.filter(c => c.media_type === 'tv');
+  }
+
+  if (window._personActiveSort === 'pop') {
+    items.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+  } else if (window._personActiveSort === 'rating') {
+    items.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+  } else if (window._personActiveSort === 'newest') {
+    items.sort((a, b) => new Date(grd(b) || '1970').getTime() - new Date(grd(a) || '1970').getTime());
+  } else if (window._personActiveSort === 'oldest') {
+    items.sort((a, b) => new Date(grd(a) || '2099').getTime() - new Date(grd(b) || '2099').getTime());
+  }
+
+  if (titleEl) {
+    titleEl.textContent = `Filmography (${items.length})`;
+  }
+
+  if (!items.length) {
+    grid.innerHTML = renderEmptyState('🎬', 'No Results', 'No titles match this filter.');
+  } else {
+    grid.innerHTML = items.map(item => renderCard(item)).join('');
   }
 };
 
@@ -2460,15 +2865,394 @@ export function closeTrailerModal() {
 window.openTrailerModal = openTrailerModal;
 window.closeTrailerModal = closeTrailerModal;
 
-// Keyboard controls for modal (Esc to close, Space to pause/play)
+/* ═══════════════════════════════════════════════════════════════════
+   CINEMA GLASS PLAYER MODAL (Zero Boring Windows / Eliminates History Loop)
+   ═══════════════════════════════════════════════════════════════════ */
+
+let activeCinemaItem = null;
+let cinemaEpisodes = [];
+
+export async function openPlayerModal({ id, type = 'movie', season = 1, episode = 1, resume = false }) {
+  id = +id;
+  season = +season || 1;
+  episode = +episode || 1;
+
+  const modal = document.getElementById('player-modal');
+  const iframe = document.getElementById('cinema-iframe');
+  if (!modal || !iframe) return;
+
+  // 0. Kill background hero carousel timer to eliminate lag & frame drops during video playback
+  if (State.heroTick) {
+    clearInterval(State.heroTick);
+    State.heroTick = null;
+  }
+  State.heroPaused = true;
+
+  // 1. Resolve Item Metadata & Cache
+  let item = getItem(id);
+  if (!item) {
+    try {
+      const fetched = await API.detail(id, type);
+      item = registerItem({ ...fetched, media_type: type });
+    } catch {
+      item = { id, title: 'Playing Title', name: 'Playing Title', media_type: type };
+    }
+  } else {
+    registerItem(item);
+  }
+
+  activeCinemaItem = { id, type, season, episode, item };
+  addToHistory(item);
+
+  // 2. Accurate Resume Seeking timestamp resolution
+  let savedSecs = 0;
+  const prg = getProgress(id);
+  if (resume && prg) {
+    if (typeof prg.currentTime === 'number' && prg.currentTime > 5) {
+      savedSecs = Math.floor(prg.currentTime);
+    } else if (prg.pct && prg.duration) {
+      savedSecs = Math.floor((prg.pct / 100) * prg.duration);
+    }
+  }
+
+  // 3. UI Header & Watchlist state update
+  const titleText = gt(item);
+  const titleEl = document.getElementById('player-modal-title');
+  const subEl = document.getElementById('player-modal-sub');
+  if (titleEl) titleEl.textContent = titleText;
+  if (subEl) subEl.textContent = type === 'tv' ? `Season ${season} · Episode ${episode}` : (yr(grd(item)) || 'CineSrc Ultra HD');
+
+  const watchBtn = document.getElementById('player-modal-watchlist-btn');
+  if (watchBtn) {
+    const isSaved = isInWatchlist(id);
+    watchBtn.classList.toggle('active', isSaved);
+    watchBtn.classList.toggle('saved', isSaved);
+    watchBtn.innerHTML = isSaved ? I.bookmarkFilled : I.bookmark;
+  }
+
+  // 4. Mount CineSrc player telemetry & embed URL
+  const { embedUrl } = mountPlayer({
+    id,
+    type,
+    season,
+    episode,
+    time: savedSecs,
+    totalMinutes: item?.runtime || 90,
+    onNextEpisode: (nextS, nextE) => {
+      if (activeCinemaItem) {
+        activeCinemaItem.season = nextS;
+        activeCinemaItem.episode = nextE;
+      }
+      if (subEl) subEl.textContent = `Season ${nextS} · Episode ${nextE}`;
+      highlightActiveCinemaEpisode(nextS, nextE);
+    },
+    onClose: () => {
+      closePlayerModal();
+    }
+  });
+
+  iframe.src = embedUrl;
+  modal.classList.add('active');
+  document.body.classList.add('cinema-modal-open');
+
+  // 5. In-Modal Collapsible Episode Drawer for TV Series
+  const epToggle = document.getElementById('player-ep-toggle');
+  const epDrawer = document.getElementById('cinema-ep-drawer');
+  if (type === 'tv') {
+    if (epToggle) epToggle.style.display = 'inline-flex';
+    setupCinemaEpisodes(id, season, episode);
+  } else {
+    if (epToggle) epToggle.style.display = 'none';
+    if (epDrawer) epDrawer.classList.remove('open');
+  }
+}
+
+export function closePlayerModal() {
+  const modal = document.getElementById('player-modal');
+  const iframe = document.getElementById('cinema-iframe');
+  if (modal) modal.classList.remove('active');
+  if (iframe) iframe.src = '';
+  document.body.classList.remove('cinema-modal-open');
+  destroyPlayer();
+
+  // Resume background hero carousel if returning to home view
+  if (State.page === 'home') {
+    State.heroPaused = false;
+    startHeroTimer();
+  }
+
+  // If user navigated to a dedicated watch URL, update history back to detail view without loop
+  const pathname = window.location.pathname || '';
+  const hash = window.location.hash || '';
+  if (pathname.startsWith('/watch/') || hash.startsWith('#/watch/')) {
+    if (activeCinemaItem?.id && activeCinemaItem?.type) {
+      const slug = slugify(gt(activeCinemaItem.item || {}) || activeCinemaItem.type);
+      window.history.replaceState(null, '', `/${activeCinemaItem.type}/${activeCinemaItem.id}/${slug}`);
+    } else {
+      window.history.replaceState(null, '', '/');
+    }
+  }
+  activeCinemaItem = null;
+}
+
+export function togglePlayerEpisodeDrawer() {
+  const drawer = document.getElementById('cinema-ep-drawer');
+  const btn = document.getElementById('player-ep-toggle');
+  if (drawer) {
+    drawer.classList.toggle('open');
+    if (btn) btn.classList.toggle('active', drawer.classList.contains('open'));
+  }
+}
+
+let cinemaAllEpisodes = [];
+let cinemaCurrentSeason = 1;
+let cinemaCurrentChunk = 0;
+const EP_CHUNK_SIZE = 25;
+
+async function setupCinemaEpisodes(tvId, curSeason, curEp) {
+  try {
+    const det = await API.detail(tvId, 'tv');
+    const seasons = (det.seasons || []).filter(s => s.season_number > 0);
+    const nav = document.getElementById('cinema-season-nav');
+    if (nav) {
+      nav.innerHTML = seasons.map(s => `
+        <button class="cinema-season-tab ${s.season_number === curSeason ? 'active' : ''}" 
+                data-season="${s.season_number}"
+                onclick="window.switchCinemaSeason(${s.season_number})">
+          Season ${s.season_number} ${s.episode_count ? `<span style="opacity:0.75;font-size:0.7rem">(${s.episode_count})</span>` : ''}
+        </button>
+      `).join('');
+    }
+    await switchCinemaSeason(curSeason, curEp);
+  } catch (err) {
+    console.warn('[Cinema Episode Setup Error]', err);
+  }
+}
+
+export async function switchCinemaSeason(seasonNum, targetEp = null) {
+  if (!activeCinemaItem) return;
+  cinemaCurrentSeason = +seasonNum;
+
+  // Highlight active season pill
+  document.querySelectorAll('.cinema-season-tab').forEach(tab => {
+    tab.classList.toggle('active', +tab.dataset.season === cinemaCurrentSeason);
+  });
+
+  const list = document.getElementById('cinema-ep-list');
+  const rangeNav = document.getElementById('cinema-range-nav');
+  if (list) list.innerHTML = renderEpisodeSkeletons(4);
+
+  try {
+    const data = await API.season(activeCinemaItem.id, seasonNum);
+    cinemaAllEpisodes = data.episodes || [];
+    const activeEpNum = targetEp || activeCinemaItem.episode || 1;
+
+    // Check if season has more than 25 episodes for chunking
+    if (cinemaAllEpisodes.length > EP_CHUNK_SIZE) {
+      const numChunks = Math.ceil(cinemaAllEpisodes.length / EP_CHUNK_SIZE);
+      const activeChunk = Math.floor((activeEpNum - 1) / EP_CHUNK_SIZE);
+      cinemaCurrentChunk = Math.min(Math.max(activeChunk, 0), numChunks - 1);
+
+      if (rangeNav) {
+        rangeNav.style.display = 'flex';
+        renderEpisodeRangeNav(numChunks, cinemaCurrentChunk, seasonNum);
+      }
+    } else {
+      cinemaCurrentChunk = 0;
+      if (rangeNav) {
+        rangeNav.style.display = 'none';
+        rangeNav.innerHTML = '';
+      }
+    }
+
+    renderEpisodeListDOM(seasonNum, activeEpNum);
+  } catch (err) {
+    if (list) list.innerHTML = '<div style="color:var(--txt3);padding:14px;font-size:0.85rem">Could not load episodes.</div>';
+  }
+}
+
+function renderEpisodeRangeNav(numChunks, activeChunk, seasonNum) {
+  const rangeNav = document.getElementById('cinema-range-nav');
+  if (!rangeNav) return;
+  const buttons = [];
+  for (let i = 0; i < numChunks; i++) {
+    const start = i * EP_CHUNK_SIZE + 1;
+    const end = Math.min((i + 1) * EP_CHUNK_SIZE, cinemaAllEpisodes.length);
+    buttons.push(`
+      <button class="cinema-range-tab ${i === activeChunk ? 'active' : ''}"
+              data-chunk="${i}"
+              onclick="window.switchEpisodeChunk(${i}, ${seasonNum})">
+        ${start}–${end}
+      </button>
+    `);
+  }
+  rangeNav.innerHTML = buttons.join('');
+}
+
+export function switchEpisodeChunk(chunkIdx, seasonNum) {
+  cinemaCurrentChunk = +chunkIdx;
+  document.querySelectorAll('.cinema-range-tab').forEach(tab => {
+    tab.classList.toggle('active', +tab.dataset.chunk === cinemaCurrentChunk);
+  });
+  renderEpisodeListDOM(seasonNum, activeCinemaItem?.episode);
+}
+
+function renderEpisodeListDOM(seasonNum, activeEpNum) {
+  const list = document.getElementById('cinema-ep-list');
+  if (!list) return;
+
+  let displayEpisodes = cinemaAllEpisodes;
+  if (cinemaAllEpisodes.length > EP_CHUNK_SIZE) {
+    const start = cinemaCurrentChunk * EP_CHUNK_SIZE;
+    displayEpisodes = cinemaAllEpisodes.slice(start, start + EP_CHUNK_SIZE);
+  }
+
+  if (!displayEpisodes.length) {
+    list.innerHTML = '<div style="color:var(--txt3);padding:14px;font-size:0.85rem">No episodes found for this season.</div>';
+    return;
+  }
+
+  list.innerHTML = displayEpisodes.map(ep => {
+    const isCur = ep.episode_number === +activeEpNum && +seasonNum === activeCinemaItem?.season;
+    const thumb = ep.still_path ? IM.still(ep.still_path) : 'assets/placeholder-backdrop.svg';
+    const runtime = ep.runtime ? `${ep.runtime}m` : '';
+
+    return `
+      <div class="cinema-ep-item ${isCur ? 'active' : ''}" 
+           data-s="${seasonNum}" data-e="${ep.episode_number}"
+           onclick="window.switchCinemaEpisode(${seasonNum}, ${ep.episode_number})">
+        <div class="cinema-ep-thumb-wrap">
+          <img class="cinema-ep-thumb" src="${thumb}" alt="Episode ${ep.episode_number}" loading="lazy" />
+          ${runtime ? `<span class="cinema-ep-badge">${runtime}</span>` : ''}
+        </div>
+        <div class="cinema-ep-info">
+          <div class="cinema-ep-header-line">
+            <span class="cinema-ep-num-pill">EP ${ep.episode_number}</span>
+            ${isCur ? '<span style="font-size:0.65rem;color:var(--red);font-weight:700">▶ PLAYING</span>' : ''}
+          </div>
+          <div class="cinema-ep-name">${ep.name || `Episode ${ep.episode_number}`}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+export function switchCinemaEpisode(seasonNum, episodeNum) {
+  if (!activeCinemaItem) return;
+  activeCinemaItem.season = +seasonNum;
+  activeCinemaItem.episode = +episodeNum;
+
+  const subEl = document.getElementById('player-modal-sub');
+  if (subEl) subEl.textContent = `Season ${seasonNum} · Episode ${episodeNum}`;
+
+  const iframe = document.getElementById('cinema-iframe');
+  if (iframe) {
+    iframe.src = buildEmbedUrl({
+      id: activeCinemaItem.id,
+      type: 'tv',
+      season: seasonNum,
+      episode: episodeNum
+    });
+  }
+
+  highlightActiveCinemaEpisode(seasonNum, episodeNum);
+}
+
+function highlightActiveCinemaEpisode(seasonNum, episodeNum) {
+  document.querySelectorAll('.cinema-ep-item').forEach(el => {
+    const s = +el.dataset.s;
+    const e = +el.dataset.e;
+    el.classList.toggle('active', s === +seasonNum && e === +episodeNum);
+  });
+}
+
+export function handlePlayerWatchlistToggle(targetId) {
+  const id = targetId || activeCinemaItem?.id;
+  if (!id) return false;
+  const inList = toggleWatchlist(id);
+  const btn = document.getElementById('player-modal-watchlist-btn');
+  if (btn) {
+    btn.classList.toggle('active', inList);
+    btn.classList.toggle('saved', inList);
+    btn.innerHTML = inList ? I.bookmarkFilled : I.bookmark;
+  }
+  document.querySelectorAll(`[data-fid="${id}"]`).forEach(b => {
+    b.classList.toggle('saved', inList);
+    b.innerHTML = inList ? I.bookmarkFilled : I.bookmark;
+  });
+  return inList;
+}
+window.handlePlayerWatchlistToggle = handlePlayerWatchlistToggle;
+window.toggleFav = handlePlayerWatchlistToggle;
+window.switchCinemaSeason = switchCinemaSeason;
+window.switchCinemaEpisode = switchCinemaEpisode;
+window.switchEpisodeChunk = switchEpisodeChunk;
+window.togglePlayerEpisodeDrawer = togglePlayerEpisodeDrawer;
+
+export async function surpriseMe() {
+  try {
+    showToast('🎲 Rolling for something amazing…', 'ok', 2000);
+    const type = Math.random() > 0.5 ? 'movie' : 'tv';
+    const randomPage = Math.floor(Math.random() * 5) + 1;
+    const pool = await (Math.random() > 0.5 ? API.topRated(type, randomPage) : API.popular(type, randomPage));
+    const results = pool.results || [];
+    if (results.length) {
+      const pick = results[Math.floor(Math.random() * results.length)];
+      registerItem({ ...pick, media_type: type });
+      showToast(`🎲 Selected: ${gt(pick)}!`, 'ok', 3000);
+      const slug = slugify(gt(pick) || type);
+      navigateTo(`/${type}/${pick.id}/${slug}`);
+    } else {
+      navigateTo('/trending');
+    }
+  } catch (err) {
+    navigateTo('/trending');
+  }
+}
+
+export async function quickTrailer(id, type) {
+  try {
+    showToast('🎬 Loading preview trailer…', 'ok', 1500);
+    const det = await API.detail(id, type);
+    const videos = det.videos?.results || [];
+    const trailer = videos.find(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser')) ||
+                    videos.find(v => v.site === 'YouTube');
+    if (trailer?.key) {
+      openTrailerModal(trailer.key);
+    } else {
+      showToast('No trailer video available for this title.', 'warn');
+    }
+  } catch {
+    showToast('Could not fetch trailer video.', 'warn');
+  }
+}
+
+window.openPlayerModal = openPlayerModal;
+window.closePlayerModal = closePlayerModal;
+window.togglePlayerEpisodeDrawer = togglePlayerEpisodeDrawer;
+window.switchCinemaSeason = switchCinemaSeason;
+window.switchCinemaEpisode = switchCinemaEpisode;
+window.handlePlayerWatchlistToggle = handlePlayerWatchlistToggle;
+window.surpriseMe = surpriseMe;
+window.quickTrailer = quickTrailer;
+
+// Global Keyboard Controls (Esc to close, Space/K to pause/play, M for Mute)
 document.addEventListener('keydown', (e) => {
   const activeTag = document.activeElement?.tagName?.toLowerCase();
-  if (activeTag === 'input' || activeTag === 'textarea') return;
+  if (['input', 'textarea', 'select'].includes(activeTag)) return;
+
+  const playerModal = document.getElementById('player-modal');
+  const isPlayerOpen = playerModal?.classList.contains('active');
 
   const trailerModal = document.getElementById('trailer-modal');
   const isTrailerOpen = trailerModal?.classList.contains('open');
 
+  // 1. Esc: close modals
   if (e.key === 'Escape') {
+    if (isPlayerOpen) {
+      closePlayerModal();
+      return;
+    }
     if (isTrailerOpen) {
       closeTrailerModal();
       return;
@@ -2481,12 +3265,25 @@ document.addEventListener('keydown', (e) => {
     closeDrawer();
   }
 
-  if (e.key === ' ' && isTrailerOpen) {
-    e.preventDefault();
-    const iframe = document.getElementById('trailer-iframe');
-    if (iframe && iframe.contentWindow) {
-      // Toggle play/pause via YouTube postMessage API
-      iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+  // 2. Space / K: Play/Pause
+  if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
+    if (isPlayerOpen) {
+      e.preventDefault();
+      sendPlayerCommand('togglePlay');
+    } else if (isTrailerOpen) {
+      e.preventDefault();
+      const iframe = document.getElementById('trailer-iframe');
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+      }
+    }
+  }
+
+  // 3. M: Mute / Unmute
+  if (e.key === 'm' || e.key === 'M') {
+    if (isPlayerOpen) {
+      e.preventDefault();
+      sendPlayerCommand('toggleMute');
     }
   }
 });
@@ -2640,7 +3437,7 @@ function renderErrorState(msg, showBack = false) {
       <div class="em-s">${msg}</div>
       <div style="display:flex;gap:10px;margin-top:20px">
         ${showBack ? `<button class="btn btn-out btn-sm" onclick="window.goBack()">Go Back</button>` : ''}
-        <button class="btn btn-red btn-sm" onclick="navigateTo('#/')">Return Home</button>
+        <button class="btn btn-red btn-sm" onclick="navigateTo('/')">Return Home</button>
       </div>
     </div>
   `;
@@ -2694,8 +3491,9 @@ function setupDrawerSearch() {
         drop.innerHTML = items.map(i => {
           const t = mty(i);
           registerItem(i);
+          const slug = slugify(gt(i) || 'title');
           return `
-            <div class="sd-row" onclick="navigateTo('#/detail/${t}/${i.id}'); closeDrawer();">
+            <div class="sd-row" onclick="navigateTo('/${t}/${i.id}/${slug}'); closeDrawer();">
               <img class="sd-img" src="${IM.poster(i.poster_path, 'w92')}" alt="${gt(i)}" />
               <div style="min-width:0">
                 <div class="sd-title">${gt(i)}</div>

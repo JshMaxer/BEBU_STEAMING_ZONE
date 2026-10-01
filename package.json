@@ -4,8 +4,8 @@
   "description": "A premium, cinema-grade streaming web application for movies and TV shows.",
   "type": "module",
   "scripts": {
-    "start": "npx -y serve . -l 3000",
-    "dev": "npx -y serve . -l 3000"
+    "start": "npx -y serve -s . -l 3000",
+    "dev": "npx -y serve -s . -l 3000"
   },
   "keywords": [
     "streaming",

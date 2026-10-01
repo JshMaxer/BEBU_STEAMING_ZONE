@@ -156,11 +156,12 @@ export const API = {
   season: (id, seasonNum) => 
     apiFetch(`/tv/${id}/season/${seasonNum}`),
 
-  byGenre: (type, genreId, page = 1, sortBy = 'popularity.desc') => 
+  byGenre: (type, genreId, page = 1, sortBy = 'popularity.desc', extra = {}) => 
     apiFetch(`/discover/${type}`, { 
       with_genres: genreId, 
       sort_by: sortBy, 
-      page 
+      page,
+      ...extra
     }),
 
   genres: (type) => 
@@ -179,7 +180,10 @@ export const API = {
     apiFetch(`/discover/${type}`, params),
 
   tvDetail: (id) => 
-    apiFetch(`/tv/${id}`)
+    apiFetch(`/tv/${id}`),
+
+  person: (id) => 
+    apiFetch(`/person/${id}`, { append_to_response: 'combined_credits' })
 };
 
 /**
