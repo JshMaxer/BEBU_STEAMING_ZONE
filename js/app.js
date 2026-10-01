@@ -9,7 +9,7 @@ import {
   State, registerItem, getItem, isInWatchlist, toggleWatchlist,
   addToHistory, removeFromHistory, clearHistory, getProgress,
   removeProgress, getContinueWatching, exportUserData, importUserData,
-  showToast, subscribe
+  showToast, subscribe, getNotifications, saveNotifications, ST
 } from './state.js';
 import { mountPlayer, destroyPlayer, sendPlayerCommand, buildEmbedUrl } from './player.js';
 
@@ -144,8 +144,10 @@ export function isSameMedia(urlA, urlB) {
   return a && b && a === b;
 }
 
-export function navigateTo(url, replace = false) {
+export function routeTo(url, options = {}) {
   if (typeof window === 'undefined') return;
+
+  const replace = typeof options === 'boolean' ? options : Boolean(options && options.replace);
 
   let cleanUrl = url || '/';
   if (cleanUrl.startsWith('#/')) {
@@ -158,27 +160,13 @@ export function navigateTo(url, replace = false) {
   }
 
   const currentUrl = (window.location.pathname || '/') + (window.location.search || '');
+  // Idempotent Router: if destination matches active view, never push a duplicate entry
   if (currentUrl === cleanUrl) return;
 
-  // Prevent navigation history loop: If toggling between detail and watch for the same media, replace history
-  if (isSameMedia(currentUrl, cleanUrl)) {
-    replace = true;
-  }
-
-  if (!State._navStack) {
-    State._navStack = [currentUrl];
-  }
-
   if (replace) {
-    window.history.replaceState(null, '', cleanUrl);
-    if (State._navStack.length > 0) {
-      State._navStack[State._navStack.length - 1] = cleanUrl;
-    } else {
-      State._navStack.push(cleanUrl);
-    }
+    window.history.replaceState({ url: cleanUrl }, '', cleanUrl);
   } else {
-    window.history.pushState(null, '', cleanUrl);
-    State._navStack.push(cleanUrl);
+    window.history.pushState({ url: cleanUrl }, '', cleanUrl);
   }
 
   const { root } = parseRoute();
@@ -190,73 +178,100 @@ export function navigateTo(url, replace = false) {
   handleRoute();
 }
 
-export function goBack(fallback) {
+export function navigateTo(url, replace = false) {
+  return routeTo(url, { replace: typeof replace === 'boolean' ? replace : false });
+}
+
+export function handleBack(fallback) {
+  // If video player modal is currently open, dismiss it directly without altering history
+  const playerModal = document.getElementById('player-modal');
+  if (playerModal && playerModal.classList.contains('active')) {
+    closePlayerModal();
+    return;
+  }
+
+  // If trailer modal is open, dismiss it
+  const trailerModal = document.getElementById('trailer-modal') || document.getElementById('tmodal');
+  if (trailerModal && trailerModal.classList.contains('open')) {
+    closeTrailer();
+    return;
+  }
+
   const { root, segments } = parseRoute();
 
-  // If in watch player, unwind to detail view using replaceState so player isn't trapped in back loop
+  // If in watch player from direct route, unwind to detail view using replaceState
   if (root === 'watch') {
     const type = segments[1] || 'movie';
     const id = segments[2];
     const slug = segments[3] || 'title';
-    navigateTo(`/${type}/${id}/${slug}`, true);
+    routeTo(`/${type}/${id}/${slug}`, { replace: true });
     return;
   }
 
-  // If there is history in this session, use native history.back() to pop cleanly
-  if (typeof window !== 'undefined' && window.history.length > 1 && State._navStack && State._navStack.length > 1) {
-    State._navStack.pop();
+  // Sync navigation exclusively with native HTML5 History API
+  if (typeof window !== 'undefined' && window.history.length > 1) {
     window.history.back();
-    return;
+  } else {
+    const dest = fallback || State._lastBrowsePage || 'home';
+    if (dest === 'home' || dest === '/') {
+      go('home');
+    } else {
+      routeTo(dest);
+    }
   }
-
-  // Fallback for direct links / fresh tab
-  const dest = fallback || State._lastBrowsePage || '/';
-  navigateTo(dest, false);
 }
+export const goBack = handleBack;
 
 export function go(target, params = {}) {
   if (typeof target === 'string') {
     if (target.startsWith('/') || target.startsWith('#')) {
-      navigateTo(target);
+      routeTo(target);
     } else if (target === 'person') {
       const id = params.id;
       const slug = slugify(params.name || 'cast');
-      navigateTo(`/person/${id}/${slug}`);
+      routeTo(`/person/${id}/${slug}`);
     } else if (target === 'movie') {
       const id = params.id;
       const slug = slugify(params.title || params.name || 'movie');
-      navigateTo(`/movie/${id}/${slug}`);
+      routeTo(`/movie/${id}/${slug}`);
     } else if (target === 'tv') {
       const id = params.id;
       const slug = slugify(params.name || params.title || 'tv');
-      navigateTo(`/tv/${id}/${slug}`);
+      routeTo(`/tv/${id}/${slug}`);
     } else if (target === 'detail') {
       const t = params.type === 'tv' ? 'tv' : 'movie';
       const id = params.id;
       const slug = slugify(params.title || params.name || t);
-      navigateTo(`/${t}/${id}/${slug}`);
+      routeTo(`/${t}/${id}/${slug}`);
     } else if (target === 'genre') {
       const id = params.id;
       const slug = slugify(params.name || 'genre');
-      navigateTo(`/genre/${id}/${slug}`);
+      routeTo(`/genre/${id}/${slug}`);
     } else if (target === 'watch') {
+      // Treat Video Player as Floating Overlay/Modal, NOT a full page navigation state
       const t = params.type === 'tv' ? 'tv' : 'movie';
       const id = params.id;
-      const slug = slugify(params.title || params.name || t);
-      const qs = params.season ? `?season=${params.season}&ep=${params.episode || 1}` : '';
-      navigateTo(`/watch/${t}/${id}/${slug}${qs}`);
+      openPlayerModal({
+        id,
+        type: t,
+        season: params.season || 1,
+        episode: params.episode || 1,
+        resume: params.resume ?? true
+      });
     } else if (target === 'search') {
-      navigateTo(`/search?q=${encodeURIComponent(params.q || '')}`);
+      routeTo(`/search?q=${encodeURIComponent(params.q || '')}`);
     } else {
-      navigateTo(`/${target}`);
+      routeTo(`/${target}`);
     }
   }
 }
 
 if (typeof window !== 'undefined') {
+  window.routeTo = routeTo;
   window.navigateTo = navigateTo;
   window.go = go;
-  window.goBack = goBack;
+  window.goBack = handleBack;
+  window.handleBack = handleBack;
 }
 
 export function getPageFromRoot(root, segments = []) {
@@ -470,14 +485,10 @@ export async function handleRoute() {
 // Native popstate listener for back/forward browser gestures
 if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => {
-    const currentUrl = (window.location.pathname || '/') + (window.location.search || '');
-    if (State._navStack && State._navStack.length > 0) {
-      const idx = State._navStack.lastIndexOf(currentUrl);
-      if (idx !== -1) {
-        State._navStack = State._navStack.slice(0, idx + 1);
-      } else {
-        State._navStack.pop();
-      }
+    // If video player modal is currently open when browser back is triggered, dismiss overlay
+    const playerModal = document.getElementById('player-modal');
+    if (playerModal && playerModal.classList.contains('active')) {
+      closePlayerModal();
     }
     handleRoute();
   });
@@ -507,17 +518,43 @@ export function renderNavbar() {
         <input id="srch-inp" type="text" placeholder="Search movies, shows…" autocomplete="off" value="${State.query || ''}" />
         <div id="sdrop"></div>
       </div>
-      <button class="btn-surprise" onclick="window.surpriseMe()" title="Surprise Me (Roll random title)">
+      <button class="btn-surprise hide-mobile" onclick="window.surpriseMe()" title="Surprise Me (Roll random title)">
         🎲 <span class="hide-mobile">Surprise Me</span>
       </button>
-      <button class="btn btn-out btn-sm" onclick="window.openDataModal()" title="Backup & Restore Data">
+      <button class="btn btn-out btn-sm hide-mobile" onclick="window.openDataModal()" title="Backup & Restore Data">
         ${I.backup} <span class="hide-mobile">Backup</span>
       </button>
-      <button class="nav-hbg" onclick="openDrawer()" aria-label="Open menu">${I.menu}</button>
+      <div class="notif-wrap" id="notif-wrap">
+        <button class="nav-bell-btn" id="nav-bell-btn" onclick="window.toggleNotificationDropdown()" aria-label="Notifications" title="Watchlist Release Notifications">
+          <span class="bell-ico">🔔</span>
+          <span class="bell-badge" id="bell-badge" style="display:none">0</span>
+        </button>
+        <div class="notif-dropdown" id="notif-dropdown">
+          <div class="notif-header">
+            <div class="notif-title">🔔 Watchlist Updates</div>
+            <button class="notif-mark-all" onclick="window.markAllNotificationsRead()">Mark all as read</button>
+          </div>
+          <div class="notif-list" id="notif-list">
+            <div class="notif-empty">No watchlist updates detected yet.</div>
+          </div>
+        </div>
+      </div>
+      <button class="nav-srch-btn" id="mobile-srch-toggle" onclick="window.toggleMobileSearch()" aria-label="Search" title="Search">
+        ${I.search}
+      </button>
+      <button class="nav-hbg" onclick="openDrawer()" aria-label="Open menu" title="Open Menu">${I.menu}</button>
+    </div>
+    <div id="mobile-srch-bar" class="mobile-srch-bar">
+      <div class="mobile-srch-inner">
+        <span class="mobile-srch-ico">${I.search}</span>
+        <input id="mobile-srch-inp" type="text" placeholder="Search movies, shows…" autocomplete="off" />
+        <button class="mobile-srch-cls" onclick="window.toggleMobileSearch(false)" aria-label="Close search">✕</button>
+      </div>
+      <div id="mobile-sdrop" class="mobile-sdrop"></div>
     </div>
   `;
 
-  // Attach search input listeners
+  // Attach desktop search input listeners
   const inp = document.getElementById('srch-inp');
   if (inp) {
     let debounceTimer;
@@ -556,7 +593,101 @@ export function renderNavbar() {
     });
   }
 
+  // Attach mobile search input listeners
+  const mInp = document.getElementById('mobile-srch-inp');
+  if (mInp) {
+    let mTimer;
+    mInp.addEventListener('input', (e) => {
+      clearTimeout(mTimer);
+      const q = e.target.value.trim();
+      const drop = document.getElementById('mobile-sdrop');
+      if (!q) {
+        if (drop) { drop.classList.remove('show'); drop.innerHTML = ''; }
+        return;
+      }
+      mTimer = setTimeout(async () => {
+        if (q.length < 2) return;
+        try {
+          const data = await API.search(q, 1);
+          const results = (data.results || [])
+            .filter(i => i.media_type !== 'person' && i.poster_path && (i.title || i.name))
+            .slice(0, 6);
+          showMobileSearchDrop(results, q);
+        } catch {}
+      }, 300);
+    });
+
+    mInp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const q = e.target.value.trim();
+        if (q) {
+          window.toggleMobileSearch(false);
+          navigateTo(`/search?q=${encodeURIComponent(q)}`);
+        }
+      } else if (e.key === 'Escape') {
+        window.toggleMobileSearch(false);
+      }
+    });
+  }
+
   renderDrawerLinks();
+  updateNotificationBadge();
+  renderNotificationsDOM();
+}
+
+export function toggleMobileSearch(forceState) {
+  const bar = document.getElementById('mobile-srch-bar');
+  if (!bar) return;
+  const willOpen = typeof forceState === 'boolean' ? forceState : !bar.classList.contains('open');
+  bar.classList.toggle('open', willOpen);
+  const toggleBtn = document.getElementById('mobile-srch-toggle');
+  if (toggleBtn) toggleBtn.classList.toggle('active', willOpen);
+  if (willOpen) {
+    const inp = document.getElementById('mobile-srch-inp');
+    if (inp) {
+      setTimeout(() => inp.focus(), 60);
+    }
+  } else {
+    const drop = document.getElementById('mobile-sdrop');
+    if (drop) {
+      drop.classList.remove('show');
+      drop.innerHTML = '';
+    }
+  }
+}
+window.toggleMobileSearch = toggleMobileSearch;
+
+function showMobileSearchDrop(items, query) {
+  const drop = document.getElementById('mobile-sdrop');
+  if (!drop) return;
+
+  if (!items.length) {
+    drop.innerHTML = `<div class="sd-row" style="justify-content:center;color:var(--txt3);font-size:0.8rem">No results found</div>`;
+    drop.classList.add('show');
+    return;
+  }
+
+  drop.innerHTML = items.map(item => {
+    const t = mty(item);
+    registerItem(item);
+    const slug = slugify(gt(item) || 'title');
+    return `
+      <div class="sd-row" onclick="navigateTo('/${t}/${item.id}/${slug}'); window.toggleMobileSearch(false);">
+        <img class="sd-img" src="${IM.poster(item.poster_path, 'w92')}" alt="${gt(item)}" loading="lazy" />
+        <div style="flex:1;min-width:0">
+          <div class="sd-title">${gt(item)}</div>
+          <div class="sd-meta">${yr(grd(item))} ${item.vote_average ? `· ⭐ ${fr(item.vote_average)}` : ''}</div>
+        </div>
+        <span class="sd-type">${t === 'tv' ? 'TV' : 'FILM'}</span>
+      </div>
+    `;
+  }).join('') + `
+    <div class="sd-row" style="justify-content:center;color:var(--red);font-size:0.82rem;font-weight:700;gap:6px" 
+         onclick="navigateTo('/search?q=${encodeURIComponent(query)}'); window.toggleMobileSearch(false);">
+      ${I.search} View all results
+    </div>
+  `;
+  drop.classList.add('show');
 }
 
 function renderDrawerLinks() {
@@ -615,12 +746,286 @@ function closeSearchDrop() {
   document.getElementById('sdrop')?.classList.remove('show');
 }
 
-// Global click-away to close search drop
+// Global click-away to close search drops and notifications
 if (typeof document !== 'undefined') {
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.srch-wrap')) closeSearchDrop();
+    if (!e.target.closest('#mobile-srch-bar') && !e.target.closest('#mobile-srch-toggle')) {
+      toggleMobileSearch(false);
+    }
+    if (!e.target.closest('#notif-wrap')) {
+      toggleNotificationDropdown(false);
+    }
   });
 }
+
+/**
+ * Enable native horizontal mouse-wheel translation (deltaY -> scrollLeft)
+ * and click-and-drag scrolling for episode chunking tabs
+ */
+export function enableHorizontalScroll(el) {
+  if (!el || el._hasHorizScroll) return;
+  el._hasHorizScroll = true;
+
+  // 1. Mouse wheel translation: deltaY -> scrollLeft
+  el.addEventListener('wheel', (evt) => {
+    if (evt.deltaY !== 0) {
+      if (el.scrollWidth > el.clientWidth) {
+        evt.preventDefault();
+        el.scrollLeft += evt.deltaY;
+      }
+    }
+  }, { passive: false });
+
+  // 2. Click-and-drag horizontal mouse scrolling
+  let isDown = false;
+  let startX = 0;
+  let scrollLeft = 0;
+
+  el.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isDown = true;
+    el.classList.add('is-dragging');
+    startX = e.pageX - el.offsetLeft;
+    scrollLeft = el.scrollLeft;
+  });
+
+  const stopDrag = () => {
+    if (isDown) {
+      isDown = false;
+      el.classList.remove('is-dragging');
+    }
+  };
+
+  window.addEventListener('mouseup', stopDrag);
+  window.addEventListener('mouseleave', stopDrag);
+
+  el.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    el.scrollLeft = scrollLeft - walk;
+  });
+}
+window.enableHorizontalScroll = enableHorizontalScroll;
+
+/**
+ * Contextual Screen Rotate Button Visibility
+ * Hidden by default; displayed only on mobile/touch viewports in portrait mode
+ */
+export function updateRotateButtonVisibility() {
+  const btn = document.getElementById('player-rotate-btn');
+  if (!btn) return;
+  const isTouch = ('ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0));
+  const isMobile = window.innerWidth <= 768;
+  const isPortrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
+  if (isTouch && isMobile && isPortrait) {
+    btn.style.setProperty('display', 'inline-flex', 'important');
+  } else {
+    btn.style.setProperty('display', 'none', 'important');
+  }
+}
+window.updateRotateButtonVisibility = updateRotateButtonVisibility;
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', updateRotateButtonVisibility);
+  window.addEventListener('orientationchange', updateRotateButtonVisibility);
+}
+
+/**
+ * Watchlist Notifications System
+ */
+export function toggleNotificationDropdown(forceState) {
+  const dropdown = document.getElementById('notif-dropdown');
+  const btn = document.getElementById('nav-bell-btn');
+  if (!dropdown) return;
+  const isOpen = typeof forceState === 'boolean' ? forceState : !dropdown.classList.contains('show');
+  dropdown.classList.toggle('show', isOpen);
+  if (btn) btn.classList.toggle('active', isOpen);
+  if (isOpen) {
+    renderNotificationsDOM();
+  }
+}
+window.toggleNotificationDropdown = toggleNotificationDropdown;
+
+export function updateNotificationBadge() {
+  const notifs = getNotifications();
+  const unreadCount = notifs.filter(n => !n.read).length;
+  const badge = document.getElementById('bell-badge');
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+window.updateNotificationBadge = updateNotificationBadge;
+
+export function renderNotificationsDOM() {
+  const listEl = document.getElementById('notif-list');
+  if (!listEl) return;
+  const notifs = getNotifications();
+  if (!notifs.length) {
+    listEl.innerHTML = '<div class="notif-empty">No watchlist updates detected yet.</div>';
+    return;
+  }
+
+  listEl.innerHTML = notifs.map(n => `
+    <div class="notif-item ${n.read ? 'read' : 'unread'}" 
+         onclick="window.markNotificationRead('${n.id}', ${n.mediaId}, '${n.type}', '${(n.title || '').replace(/'/g, "\\'")}')">
+      <div class="notif-item-body">
+        <div class="notif-item-head">
+          <span class="notif-item-title">${n.title}</span>
+          <span class="notif-item-type">${n.type === 'tv' ? 'Series' : 'Movie'}</span>
+        </div>
+        <div class="notif-item-msg">${n.message}</div>
+        <div class="notif-item-date">${fd(n.date) || n.date}</div>
+      </div>
+    </div>
+  `).join('');
+}
+window.renderNotificationsDOM = renderNotificationsDOM;
+
+export function markNotificationRead(notifId, mediaId, type, title) {
+  const notifs = getNotifications();
+  const notif = notifs.find(n => n.id === notifId);
+  if (notif) {
+    notif.read = true;
+    saveNotifications(notifs);
+    updateNotificationBadge();
+    renderNotificationsDOM();
+  }
+  toggleNotificationDropdown(false);
+  if (mediaId && type) {
+    const slug = slugify(title || type);
+    navigateTo(`/${type}/${mediaId}/${slug}`);
+  }
+}
+window.markNotificationRead = markNotificationRead;
+
+export function markAllNotificationsRead() {
+  const notifs = getNotifications();
+  notifs.forEach(n => n.read = true);
+  saveNotifications(notifs);
+  updateNotificationBadge();
+  renderNotificationsDOM();
+}
+window.markAllNotificationsRead = markAllNotificationsRead;
+
+export async function checkWatchlistNotifications() {
+  const watchlist = State.watchlistData || State.favData || [];
+  if (!watchlist.length) {
+    updateNotificationBadge();
+    return;
+  }
+
+  const existingNotifs = getNotifications();
+  const notifMap = new Map();
+  existingNotifs.forEach(n => notifMap.set(n.id, n));
+
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const sevenDaysAhead = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAhead = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+
+  let newAlertCount = 0;
+
+  await batchFetch(watchlist, async (item) => {
+    try {
+      const type = item.media_type || (item.title ? 'movie' : 'tv');
+      const det = await API.detail(item.id, type);
+      const title = gt(det);
+
+      if (type === 'tv') {
+        // Inspect last episode to air or check if last_air_date falls within the last 7 days
+        if (det.last_episode_to_air) {
+          const ep = det.last_episode_to_air;
+          const airDate = ep.air_date ? new Date(ep.air_date) : null;
+          if (airDate && !isNaN(airDate.getTime()) && airDate >= sevenDaysAgo && airDate <= now) {
+            const notifId = `tv-${item.id}-s${ep.season_number}e${ep.episode_number}`;
+            if (!notifMap.has(notifId)) {
+              notifMap.set(notifId, {
+                id: notifId,
+                title: title,
+                message: `Season ${ep.season_number}, Episode ${ep.episode_number}${ep.name ? ` ("${ep.name}")` : ''} is now available!`,
+                date: ep.air_date,
+                read: false,
+                mediaId: item.id,
+                type: 'tv'
+              });
+              newAlertCount++;
+            }
+          }
+        }
+
+        // Inspect next episode to air (upcoming within 7 days)
+        if (det.next_episode_to_air) {
+          const ep = det.next_episode_to_air;
+          const airDate = ep.air_date ? new Date(ep.air_date) : null;
+          if (airDate && !isNaN(airDate.getTime()) && airDate >= now && airDate <= sevenDaysAhead) {
+            const notifId = `tv-${item.id}-s${ep.season_number}e${ep.episode_number}-upcoming`;
+            if (!notifMap.has(notifId)) {
+              notifMap.set(notifId, {
+                id: notifId,
+                title: title,
+                message: `Season ${ep.season_number}, Episode ${ep.episode_number} airs soon on ${ep.air_date}!`,
+                date: ep.air_date,
+                read: false,
+                mediaId: item.id,
+                type: 'tv'
+              });
+              newAlertCount++;
+            }
+          }
+        }
+      } else if (type === 'movie') {
+        // Query belongs_to_collection to check for newer movies in the same collection
+        if (det.belongs_to_collection && det.belongs_to_collection.id) {
+          try {
+            const col = await API.collection(det.belongs_to_collection.id);
+            const parts = col.parts || [];
+            parts.forEach(part => {
+              if (part.id !== item.id && part.release_date) {
+                const pDate = new Date(part.release_date);
+                if (!isNaN(pDate.getTime()) && pDate >= thirtyDaysAgo && pDate <= sixtyDaysAhead) {
+                  const notifId = `movie-${part.id}-sequel`;
+                  if (!notifMap.has(notifId)) {
+                    const isUpcoming = pDate > now;
+                    notifMap.set(notifId, {
+                      id: notifId,
+                      title: part.title || title,
+                      message: isUpcoming
+                        ? `New franchise sequel "${part.title}" arrives on ${part.release_date}!`
+                        : `New franchise sequel "${part.title}" is now available!`,
+                      date: part.release_date,
+                      read: false,
+                      mediaId: part.id,
+                      type: 'movie'
+                    });
+                    newAlertCount++;
+                  }
+                }
+              }
+            });
+          } catch (colErr) {}
+        }
+      }
+    } catch (err) {}
+  }, 3, 80);
+
+  const updatedNotifs = Array.from(notifMap.values()).sort((a, b) => new Date(b.date) - new Date(a.date));
+  saveNotifications(updatedNotifs);
+  updateNotificationBadge();
+  renderNotificationsDOM();
+
+  if (newAlertCount > 0) {
+    showToast(`🎬 ${newAlertCount} new release${newAlertCount > 1 ? 's' : ''} detected in your Watchlist!`, 'ok', 4500);
+  }
+}
+window.checkWatchlistNotifications = checkWatchlistNotifications;
 
 // Window scroll styling (debounced via requestAnimationFrame to eliminate layout thrashing)
 if (typeof window !== 'undefined') {
@@ -966,7 +1371,7 @@ function renderHeroHTML(idx) {
           </div>
           <div class="hero-desc" id="h-dsc">${item.overview || ''}</div>
           <div class="hero-btns">
-            <button class="btn btn-red" id="h-bw" onclick="navigateTo('/watch/${t}/${item.id}/${slug}?season=${prg?.s || 1}&ep=${prg?.ep || 1}')">
+            <button class="btn btn-red" id="h-bw" onclick="window.openPlayerModal({ id: ${item.id}, type: '${t}', season: ${prg?.s || 1}, episode: ${prg?.ep || 1}, resume: ${Boolean(prg && prg.pct > 5)} })">
               ${I.play} ${prg && prg.pct > 5 ? 'Continue Watching' : 'Watch Now'}
             </button>
             <button class="btn btn-dim" id="h-bi" onclick="navigateTo('/${t}/${item.id}/${slug}')">
@@ -1037,7 +1442,7 @@ function updateHeroSlide(idx) {
 
     const bw = document.getElementById('h-bw');
     if (bw) {
-      bw.setAttribute('onclick', `navigateTo('/watch/${t}/${item.id}/${slug}?season=${prg?.s || 1}&ep=${prg?.ep || 1}')`);
+      bw.setAttribute('onclick', `window.openPlayerModal({ id: ${item.id}, type: '${t}', season: ${prg?.s || 1}, episode: ${prg?.ep || 1}, resume: ${Boolean(prg && prg.pct > 5)} })`);
       bw.innerHTML = `${I.play} ${prg && prg.pct > 5 ? 'Continue Watching' : 'Watch Now'}`;
     }
 
@@ -2269,10 +2674,12 @@ async function renderPageDetail(id, type) {
 
     main.innerHTML = `
       <div>
+        <div class="det-top-bar">
+          <button class="det-back-btn" onclick="window.goBack()">${I.chevronLeft} Back</button>
+        </div>
         <div class="det-hero">
           ${bd ? `<img src="${bd}" alt="${title.replace(/"/g, '&quot;')}" />` : ''}
           <div class="det-hero-ovl"></div>
-          <button class="det-back" onclick="window.goBack()">${I.chevronLeft} Back</button>
         </div>
         <div class="det-body">
           <div class="det-grid">
@@ -2380,7 +2787,7 @@ async function renderPageDetail(id, type) {
                 </div>
               `).join('')}
             </div>
-            <div class="ep-range-tabs" id="detail-ep-range-tabs" style="display:none"></div>
+            <div class="ep-range-tabs chunk-tabs-row" id="detail-ep-range-tabs" style="display:none"></div>
             <div class="ep-grid" id="ep-grid">${renderEpisodeSkeletons(6)}</div>
           </div>
         ` : ''}
@@ -2435,6 +2842,7 @@ window.loadDetailEpisodes = async (tvId, seasonNumber) => {
       if (episodes.length > DETAIL_EP_CHUNK_SIZE) {
         const numChunks = Math.ceil(episodes.length / DETAIL_EP_CHUNK_SIZE);
         rangeNav.style.display = 'flex';
+        rangeNav.classList.add('chunk-tabs-row');
         rangeNav.innerHTML = Array.from({ length: numChunks }, (_, idx) => {
           const start = idx * DETAIL_EP_CHUNK_SIZE + 1;
           const end = Math.min((idx + 1) * DETAIL_EP_CHUNK_SIZE, episodes.length);
@@ -2447,6 +2855,7 @@ window.loadDetailEpisodes = async (tvId, seasonNumber) => {
             </button>
           `;
         }).join('');
+        enableHorizontalScroll(rangeNav);
       } else {
         rangeNav.style.display = 'none';
         rangeNav.innerHTML = '';
@@ -2686,7 +3095,7 @@ async function renderPageWatch(id, type, season, ep) {
                 </div>
               `).join('')}
             </div>
-            <div class="ep-range-tabs" id="watch-ep-range-tabs" style="display:none"></div>
+            <div class="ep-range-tabs chunk-tabs-row" id="watch-ep-range-tabs" style="display:none"></div>
             <div class="ep-grid" id="watch-ep-grid">${renderEpisodeSkeletons(6)}</div>
           </div>
         ` : ''}
@@ -2734,6 +3143,7 @@ window.loadWatchEpisodes = async (tvId, s, currentEp) => {
 
       if (rangeNav) {
         rangeNav.style.display = 'flex';
+        rangeNav.classList.add('chunk-tabs-row');
         rangeNav.innerHTML = Array.from({ length: numChunks }, (_, idx) => {
           const start = idx * DETAIL_EP_CHUNK_SIZE + 1;
           const end = Math.min((idx + 1) * DETAIL_EP_CHUNK_SIZE, episodes.length);
@@ -2746,6 +3156,7 @@ window.loadWatchEpisodes = async (tvId, s, currentEp) => {
             </button>
           `;
         }).join('');
+        enableHorizontalScroll(rangeNav);
       }
     } else {
       window._watchActiveChunk = 0;
@@ -2792,7 +3203,7 @@ window.renderWatchEpisodeGrid = (chunkIdx = 0) => {
     const isCur = episode.episode_number === currentEp && s === State.season;
     return `
       <div class="ep-card ${isCur ? 'playing' : ''}" 
-           onclick="navigateTo('/watch/tv/${tvId}/${showSlug}?season=${s}&ep=${episode.episode_number}')">
+           onclick="window.openPlayerModal({ id: ${tvId}, type: 'tv', season: ${s}, episode: ${episode.episode_number} })">
         <img class="ep-thumb" src="${IM.still(episode.still_path)}" alt="Episode ${episode.episode_number}" loading="lazy" />
         <div style="min-width:0">
           <div class="ep-num">S${s} · E${episode.episode_number} ${isCur ? '▶ Currently Playing' : ''}</div>
@@ -2848,9 +3259,9 @@ export async function renderPagePerson(personId, personName) {
     window._personActiveSort = 'pop';
 
     main.innerHTML = `
-      <div style="padding-top: calc(var(--nav) + 16px); min-height: 80vh;">
-        <div style="padding: 0 5%; margin-bottom: 20px;">
-          <button class="det-back" style="position:static" onclick="window.goBack()">
+      <div>
+        <div class="det-top-bar">
+          <button class="det-back-btn" onclick="window.goBack()">
             ${I.chevronLeft} Back
           </button>
         </div>
@@ -2939,7 +3350,7 @@ export async function renderPagePerson(personId, personName) {
           </div>
         </div>
 
-        <div class="cgrid" id="person-credits-grid" style="padding: 0 5% 48px;">
+        <div class="filmography-grid" id="person-credits-grid">
           ${credits.length ? credits.map(item => renderCard(item)).join('') : renderEmptyState('🎬', 'No Credits Available', 'No films or television shows found for this person.')}
         </div>
 
@@ -3007,23 +3418,31 @@ let activeTrailerKey = null;
 
 export function openTrailerModal(key) {
   activeTrailerKey = key;
-  const modal = document.getElementById('trailer-modal');
-  const iframe = document.getElementById('trailer-iframe');
+  const modal = document.getElementById('trailer-modal') || document.getElementById('tmodal');
+  const iframe = document.getElementById('trailer-iframe') || document.getElementById('tr-fr');
   if (modal && iframe) {
     // enablejsapi=1 allows Space key to play/pause
     iframe.src = `https://www.youtube.com/embed/${key}?autoplay=1&rel=0&enablejsapi=1`;
     modal.classList.add('open');
   }
 }
-export function closeTrailerModal() {
-  const modal = document.getElementById('trailer-modal');
-  const iframe = document.getElementById('trailer-iframe');
+
+export function closeTrailer() {
+  const modal = document.getElementById('trailer-modal') || document.getElementById('tmodal');
+  const iframe = document.getElementById('trailer-iframe') || document.getElementById('tr-fr');
   if (modal) modal.classList.remove('open');
-  if (iframe) iframe.src = '';
+  if (iframe) {
+    // Complete audio buffer destruction
+    iframe.src = 'about:blank';
+    iframe.removeAttribute('src');
+    iframe.src = '';
+  }
   activeTrailerKey = null;
 }
+export const closeTrailerModal = closeTrailer;
 window.openTrailerModal = openTrailerModal;
-window.closeTrailerModal = closeTrailerModal;
+window.closeTrailerModal = closeTrailer;
+window.closeTrailer = closeTrailer;
 
 /* ═══════════════════════════════════════════════════════════════════
    CINEMA GLASS PLAYER MODAL (Zero Boring Windows / Eliminates History Loop)
@@ -3114,6 +3533,7 @@ export async function openPlayerModal({ id, type = 'movie', season = 1, episode 
   iframe.src = embedUrl;
   modal.classList.add('active');
   document.body.classList.add('cinema-modal-open');
+  updateRotateButtonVisibility();
 
   // 5. In-Modal Collapsible Episode Drawer for TV Series
   const epToggle = document.getElementById('player-ep-toggle');
@@ -3152,8 +3572,42 @@ export function closePlayerModal() {
       window.history.replaceState(null, '', '/');
     }
   }
+
+  // Unlock device screen orientation and cleanup fullscreen/rotation fallbacks
+  try {
+    if (screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
+  } catch (err) {}
+  try {
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+  } catch (err) {}
+  document.getElementById('player-modal-container')?.classList.remove('css-landscape-fallback');
+
   activeCinemaItem = null;
 }
+
+export async function togglePlayerOrientation() {
+  try {
+    if (!document.fullscreenElement) {
+      const container = document.getElementById('player-modal-container') || document.documentElement;
+      if (container.requestFullscreen) await container.requestFullscreen();
+      else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
+    }
+    if (screen.orientation && screen.orientation.lock) {
+      const isPortrait = screen.orientation.type.startsWith('portrait');
+      await screen.orientation.lock(isPortrait ? 'landscape' : 'portrait');
+    }
+  } catch (err) {
+    // Fallback for iOS Safari / browsers blocking orientation lock:
+    // Toggle CSS class that rotates the container 90deg and sets width: 100vh; height: 100vw;
+    document.getElementById('player-modal-container')?.classList.toggle('css-landscape-fallback');
+  }
+}
+window.togglePlayerOrientation = togglePlayerOrientation;
 
 export function togglePlayerEpisodeDrawer() {
   const drawer = document.getElementById('cinema-ep-drawer');
@@ -3247,6 +3701,8 @@ function renderEpisodeRangeNav(numChunks, activeChunk, seasonNum) {
     `);
   }
   rangeNav.innerHTML = buttons.join('');
+  rangeNav.classList.add('chunk-tabs-row');
+  enableHorizontalScroll(rangeNav);
 }
 
 export function switchEpisodeChunk(chunkIdx, seasonNum) {
@@ -3276,6 +3732,7 @@ function renderEpisodeListDOM(seasonNum, activeEpNum) {
     const isCur = ep.episode_number === +activeEpNum && +seasonNum === activeCinemaItem?.season;
     const thumb = ep.still_path ? IM.still(ep.still_path) : 'assets/placeholder-backdrop.svg';
     const runtime = ep.runtime ? `${ep.runtime}m` : '';
+    const epTitle = (ep.name && ep.name.trim() !== '') ? ep.name : `Episode ${ep.episode_number}`;
 
     return `
       <div class="cinema-ep-item ${isCur ? 'active' : ''}" 
@@ -3285,12 +3742,12 @@ function renderEpisodeListDOM(seasonNum, activeEpNum) {
           <img class="cinema-ep-thumb" src="${thumb}" alt="Episode ${ep.episode_number}" loading="lazy" />
           ${runtime ? `<span class="cinema-ep-badge">${runtime}</span>` : ''}
         </div>
-        <div class="cinema-ep-info">
-          <div class="cinema-ep-header-line">
-            <span class="cinema-ep-num-pill">EP ${ep.episode_number}</span>
+        <div class="ep-card-body cinema-ep-info">
+          <div class="ep-card-badge cinema-ep-header-line">
+            <span class="cinema-ep-num-pill">S${seasonNum} · E${ep.episode_number}</span>
             ${isCur ? '<span style="font-size:0.65rem;color:var(--red);font-weight:700">▶ PLAYING</span>' : ''}
           </div>
-          <div class="cinema-ep-name">${ep.name || `Episode ${ep.episode_number}`}</div>
+          <div class="ep-card-title cinema-ep-name" title="${epTitle.replace(/"/g, '&quot;')}">${epTitle}</div>
           ${ep.overview ? `<div class="cinema-ep-overview">${ep.overview}</div>` : ''}
         </div>
       </div>
@@ -3405,7 +3862,7 @@ document.addEventListener('keydown', (e) => {
   const playerModal = document.getElementById('player-modal');
   const isPlayerOpen = playerModal?.classList.contains('active');
 
-  const trailerModal = document.getElementById('trailer-modal');
+  const trailerModal = document.getElementById('trailer-modal') || document.getElementById('tmodal');
   const isTrailerOpen = trailerModal?.classList.contains('open');
 
   // 1. Esc: close modals
@@ -3415,7 +3872,12 @@ document.addEventListener('keydown', (e) => {
       return;
     }
     if (isTrailerOpen) {
-      closeTrailerModal();
+      closeTrailer();
+      return;
+    }
+    const notifDropdown = document.getElementById('notif-dropdown');
+    if (notifDropdown?.classList.contains('show')) {
+      toggleNotificationDropdown(false);
       return;
     }
     const dataModal = document.getElementById('data-modal');
@@ -3622,14 +4084,20 @@ export function initApp() {
   if (typeof document === 'undefined') return;
   const main = document.getElementById('main');
   if (!main) return;
-  if (!State._navStack) {
-    const cur = (window.location.pathname || '/') + (window.location.search || '');
-    State._navStack = [cur];
-  }
   renderNavbar();
   setupDrawerSearch();
   handleRoute();
+  
+  // Automated background release & new episode checks for Watchlist items
+  setTimeout(() => {
+    checkWatchlistNotifications();
+  }, 800);
 }
+
+subscribe('state:restored', () => {
+  renderNavbar();
+  checkWatchlistNotifications();
+});
 
 function setupDrawerSearch() {
   const inp = document.getElementById('drawer-srch');

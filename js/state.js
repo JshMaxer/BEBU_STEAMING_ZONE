@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   PROGRESS: 'bsz-pr',
   HISTORY: 'bsz-rc',
   PREFS: 'bsz-prefs',
+  NOTIFICATIONS: 'bsz-notifications',
 };
 
 // In-memory media cache registry for quick lookups across views
@@ -70,6 +71,11 @@ export const State = {
   // Stored state
   watchlistIds: new Set(lsGet(STORAGE_KEYS.WATCHLIST_IDS, [])),
   watchlistData: lsGet(STORAGE_KEYS.WATCHLIST_DATA, []),
+  get favIds() { return this.watchlistIds; },
+  set favIds(v) { this.watchlistIds = v; },
+  get favData() { return this.watchlistData; },
+  set favData(v) { this.watchlistData = v; },
+  notifications: lsGet(STORAGE_KEYS.NOTIFICATIONS, []),
   progress: lsGet(STORAGE_KEYS.PROGRESS, {}),
   history: lsGet(STORAGE_KEYS.HISTORY, []),
   get recent() { return this.history; },
@@ -361,4 +367,23 @@ export function showToast(msg, type = 'info', durationMs = 3000) {
     toastEl.classList.add('out');
     setTimeout(() => toastEl.remove(), 280);
   }, durationMs);
+}
+
+/**
+ * Watchlist Notifications Storage Helpers
+ */
+export function getNotifications() {
+  return lsGet(STORAGE_KEYS.NOTIFICATIONS, []);
+}
+
+export function saveNotifications(notifications) {
+  State.notifications = notifications;
+  lsSet(STORAGE_KEYS.NOTIFICATIONS, notifications);
+  emit('notifications:updated', notifications);
+}
+
+export const ST = State;
+if (typeof window !== 'undefined') {
+  window.ST = State;
+  window.State = State;
 }

@@ -27,16 +27,16 @@
   </div>
 
   <!-- YouTube Trailer Modal -->
-  <div id="trailer-modal" class="modal-overlay" onclick="if(event.target === this) window.closeTrailerModal()">
+  <div id="trailer-modal" class="modal-overlay" onclick="if(event.target === this) window.closeTrailer()">
     <div class="tm-inner">
-      <button class="tm-cls" onclick="window.closeTrailerModal()" title="Close Trailer">✕</button>
+      <button class="tm-cls" onclick="window.closeTrailer()" title="Close Trailer">✕</button>
       <iframe id="trailer-iframe" src="" allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe>
     </div>
   </div>
 
   <!-- Cinema Player Modal (Optimized 60 FPS / Direct Decoding) -->
   <div id="player-modal" class="cinema-modal-overlay" onclick="if(event.target === this) window.closePlayerModal()">
-    <div class="cinema-modal-container">
+    <div class="cinema-modal-container" id="player-modal-container">
       <div class="cinema-bar">
         <div class="cinema-bar-left">
           <div class="cinema-title-group">
@@ -45,6 +45,10 @@
           </div>
         </div>
         <div class="cinema-bar-right">
+          <button id="player-rotate-btn" class="cinema-btn cinema-rotate-btn player-rotate-btn" onclick="window.togglePlayerOrientation()" title="Rotate to Landscape" aria-label="Rotate to Landscape">
+            <span class="rotate-ico">📐</span>
+            <span>Rotate</span>
+          </button>
           <button id="player-ep-toggle" class="cinema-btn cinema-ep-btn" onclick="window.togglePlayerEpisodeDrawer()" title="Select Episodes" style="display:none">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             <span>Episodes</span>
@@ -67,7 +71,7 @@
             <button class="cinema-ep-close-btn" onclick="window.togglePlayerEpisodeDrawer()" title="Close Episodes">✕</button>
           </div>
           <div class="cinema-season-nav" id="cinema-season-nav"></div>
-          <div class="cinema-range-nav" id="cinema-range-nav" style="display:none"></div>
+          <div class="cinema-range-nav chunk-tabs-row" id="cinema-range-nav" style="display:none"></div>
           <div class="cinema-ep-list" id="cinema-ep-list"></div>
         </div>
       </div>
