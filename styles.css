@@ -1527,6 +1527,83 @@ body {
   padding: 0 5%;
 }
 
+/* Cast Filmography Aero/Glass Segmented Toggle Pills */
+.pfilter-bar-wrap {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pfilter-wrap {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(18, 18, 30, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--r-full);
+  padding: 4px;
+  gap: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.pfilter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: var(--r-full);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--txt2);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  user-select: none;
+}
+.pfilter-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.pfilter-btn.on {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(232, 19, 58, 0.95) 0%, rgba(184, 13, 44, 0.95) 100%);
+  border-color: rgba(255, 60, 90, 0.4);
+  box-shadow: 0 0 18px rgba(232, 19, 58, 0.45), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.pfilter-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.pfilter-label {
+  letter-spacing: 0.01em;
+}
+.pfilter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--txt2);
+  transition: all 0.2s ease;
+}
+.pfilter-btn.on .pfilter-badge {
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.pfilter-btn:not(.on):hover .pfilter-badge {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
 /* ── CUSTOM COLLECTIONS / FRANCHISE VIEW ── */
 .col-sec {
   padding: 30px 5%;
@@ -1681,6 +1758,52 @@ body {
   border-color: var(--red);
   color: #fff;
 }
+
+/* Series Overview Episode Range Tabs */
+.ep-range-tabs {
+  display: flex;
+  gap: 8px;
+  margin: -6px 0 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 0 8px;
+  align-items: center;
+}
+.ep-range-tabs::-webkit-scrollbar {
+  display: none;
+}
+.ep-range-tabs .range-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--r-full);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--txt2);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s var(--ease);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  user-select: none;
+}
+.ep-range-tabs .range-tab:hover {
+  background: rgba(232, 19, 58, 0.15);
+  border-color: rgba(232, 19, 58, 0.4);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.ep-range-tabs .range-tab.on {
+  background: linear-gradient(135deg, var(--red) 0%, #b80d2c 100%);
+  border-color: var(--red);
+  color: #fff;
+  box-shadow: 0 0 14px var(--red-glow), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
 .ep-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1986,9 +2109,9 @@ body.cinema-modal-open {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 380px;
-  max-width: 92vw;
-  background: rgba(12, 12, 20, 0.96);
+  width: 520px;
+  max-width: 95vw;
+  background: rgba(12, 12, 20, 0.98);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-left: 1px solid rgba(255, 255, 255, 0.12);
@@ -1999,17 +2122,23 @@ body.cinema-modal-open {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: -15px 0 50px rgba(0, 0, 0, 0.9);
   contain: layout;
+  overflow: hidden;
 }
 .cinema-ep-drawer.open {
   transform: translateX(0);
 }
 .cinema-ep-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(12, 12, 20, 0.98);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 18px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   gap: 10px;
+  flex-shrink: 0;
 }
 .cinema-ep-title {
   font-family: 'Bebas Neue', sans-serif;
@@ -2037,15 +2166,19 @@ body.cinema-modal-open {
   color: #fff;
 }
 
-/* Season Tabs */
+/* Season Tabs - Sticky */
 .cinema-season-nav {
+  position: sticky;
+  top: 59px;
+  z-index: 9;
   display: flex;
   gap: 6px;
   padding: 10px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   overflow-x: auto;
   scrollbar-width: none;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(12, 12, 20, 0.98);
+  flex-shrink: 0;
 }
 .cinema-season-nav::-webkit-scrollbar { display: none; }
 .cinema-season-tab {
@@ -2072,15 +2205,19 @@ body.cinema-modal-open {
   box-shadow: 0 0 12px var(--red-glow);
 }
 
-/* Range Chunking Tabs (For Long Seasons / Anime) */
+/* Range Chunking Tabs (For Long Seasons / Anime) - Sticky */
 .cinema-range-nav {
+  position: sticky;
+  top: 105px;
+  z-index: 8;
   display: flex;
   gap: 6px;
   padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.35);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 10, 16, 0.98);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   overflow-x: auto;
   scrollbar-width: none;
+  flex-shrink: 0;
 }
 .cinema-range-nav::-webkit-scrollbar { display: none; }
 .cinema-range-tab {
@@ -2106,30 +2243,51 @@ body.cinema-modal-open {
   box-shadow: 0 0 8px rgba(232, 19, 58, 0.3);
 }
 
-/* Horizontal Episode Cards */
+/* Scrollable Responsive Card Grid with 4px Custom Crimson Scrollbar */
 .cinema-ep-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  align-content: start;
+  scrollbar-width: thin;
+  scrollbar-color: var(--red) rgba(0, 0, 0, 0.3);
+}
+.cinema-ep-list::-webkit-scrollbar {
+  width: 4px;
+}
+.cinema-ep-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.25);
+}
+.cinema-ep-list::-webkit-scrollbar-thumb {
+  background: var(--red);
+  border-radius: 4px;
+}
+.cinema-ep-list::-webkit-scrollbar-thumb:hover {
+  background: #ff2a51;
+}
+
+.cinema-ep-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.cinema-ep-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   padding: 10px;
   border-radius: var(--r-md);
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   cursor: pointer;
   transition: all 0.22s var(--ease);
+  position: relative;
+  overflow: hidden;
 }
 .cinema-ep-item:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(232, 19, 58, 0.4);
-  transform: translateX(3px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 .cinema-ep-item.active {
   background: rgba(232, 19, 58, 0.15);
@@ -2138,9 +2296,8 @@ body.cinema-modal-open {
 }
 .cinema-ep-thumb-wrap {
   position: relative;
-  width: 90px;
-  height: 52px;
-  flex-shrink: 0;
+  width: 100%;
+  height: 100px;
   border-radius: var(--r-sm);
   overflow: hidden;
   background: var(--bg3);
@@ -2153,18 +2310,18 @@ body.cinema-modal-open {
 }
 .cinema-ep-badge {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  padding: 1px 4px;
-  background: rgba(0, 0, 0, 0.8);
+  bottom: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.85);
   border-radius: 3px;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   font-weight: 700;
   color: #fff;
 }
 .cinema-ep-info {
   min-width: 0;
-  flex: 1;
+  width: 100%;
 }
 .cinema-ep-header-line {
   display: flex;
@@ -2210,7 +2367,7 @@ body.cinema-modal-open {
     right: 0;
     width: 100%;
     max-width: 100%;
-    height: 72vh;
+    height: 75vh;
     border-left: none;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: var(--r-lg) var(--r-lg) 0 0;
@@ -2218,6 +2375,12 @@ body.cinema-modal-open {
   }
   .cinema-ep-drawer.open {
     transform: translateY(0);
+  }
+  .cinema-ep-list {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+  .cinema-ep-thumb-wrap {
+    height: 85px;
   }
 }
 

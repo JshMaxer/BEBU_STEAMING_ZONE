@@ -165,19 +165,25 @@ export function navigateTo(url, replace = false) {
     replace = true;
   }
 
+  if (!State._navStack) {
+    State._navStack = [currentUrl];
+  }
+
   if (replace) {
     window.history.replaceState(null, '', cleanUrl);
-    if (State._navStack && State._navStack.length > 0) {
+    if (State._navStack.length > 0) {
       State._navStack[State._navStack.length - 1] = cleanUrl;
+    } else {
+      State._navStack.push(cleanUrl);
     }
   } else {
     window.history.pushState(null, '', cleanUrl);
-    if (!State._navStack) State._navStack = [];
     State._navStack.push(cleanUrl);
   }
 
   const { root } = parseRoute();
-  if (['home', 'movies', 'tv', 'trending', 'calendar', 'genres', 'watchlist', 'search', 'person'].includes(root)) {
+  // Only top-level browse hubs are tracked as browse return points (never person, detail, or watch)
+  if (['home', 'movies', 'tv', 'trending', 'calendar', 'genres', 'watchlist', 'search'].includes(root)) {
     State._lastBrowsePage = cleanUrl;
   }
 
@@ -196,22 +202,16 @@ export function goBack(fallback) {
     return;
   }
 
-  // If in detail view, return to the browse page the user came from (e.g. home, movies, tv, etc.)
-  if (root === 'detail') {
-    const dest = State._lastBrowsePage || fallback || '/';
-    navigateTo(dest, false);
+  // If there is history in this session, use native history.back() to pop cleanly
+  if (typeof window !== 'undefined' && window.history.length > 1 && State._navStack && State._navStack.length > 1) {
+    State._navStack.pop();
+    window.history.back();
     return;
   }
 
-  // General fallback
-  const currentUrl = (window.location.pathname || '/') + (window.location.search || '');
-  if (State._lastBrowsePage && State._lastBrowsePage !== currentUrl) {
-    navigateTo(State._lastBrowsePage);
-  } else if (typeof window !== 'undefined' && window.history.length > 1) {
-    window.history.back();
-  } else {
-    navigateTo(fallback || '/');
-  }
+  // Fallback for direct links / fresh tab
+  const dest = fallback || State._lastBrowsePage || '/';
+  navigateTo(dest, false);
 }
 
 export function go(target, params = {}) {
@@ -470,6 +470,15 @@ export async function handleRoute() {
 // Native popstate listener for back/forward browser gestures
 if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => {
+    const currentUrl = (window.location.pathname || '/') + (window.location.search || '');
+    if (State._navStack && State._navStack.length > 0) {
+      const idx = State._navStack.lastIndexOf(currentUrl);
+      if (idx !== -1) {
+        State._navStack = State._navStack.slice(0, idx + 1);
+      } else {
+        State._navStack.pop();
+      }
+    }
     handleRoute();
   });
 }
@@ -2371,6 +2380,7 @@ async function renderPageDetail(id, type) {
                 </div>
               `).join('')}
             </div>
+            <div class="ep-range-tabs" id="detail-ep-range-tabs" style="display:none"></div>
             <div class="ep-grid" id="ep-grid">${renderEpisodeSkeletons(6)}</div>
           </div>
         ` : ''}
@@ -2397,29 +2407,99 @@ async function renderPageDetail(id, type) {
   }
 }
 
+window._detailTvId = null;
+window._detailSeasonNumber = 1;
+window._detailSeasonEpisodes = [];
+window._detailActiveChunk = 0;
+const DETAIL_EP_CHUNK_SIZE = 25;
+
 window.loadDetailEpisodes = async (tvId, seasonNumber) => {
+  window._detailTvId = tvId;
+  window._detailSeasonNumber = seasonNumber;
+  window._detailActiveChunk = 0;
+
   document.querySelectorAll('#s-tabs .stab').forEach(t => {
     t.classList.toggle('on', t.textContent.trim() === `Season ${seasonNumber}`);
   });
   const grid = document.getElementById('ep-grid');
+  const rangeNav = document.getElementById('detail-ep-range-tabs');
   if (!grid) return;
   grid.innerHTML = renderEpisodeSkeletons(6);
 
   try {
     const data = await API.season(tvId, seasonNumber);
-    grid.innerHTML = (data.episodes || []).map(ep => `
-      <div class="ep-card" onclick="window.openPlayerModal({ id: ${tvId}, type: 'tv', season: ${seasonNumber}, episode: ${ep.episode_number} })">
-        <img class="ep-thumb" src="${IM.still(ep.still_path)}" loading="lazy" />
-        <div style="min-width:0">
-          <div class="ep-num">S${seasonNumber} · E${ep.episode_number} ${ep.runtime ? `· ${ep.runtime}m` : ''}</div>
-          <div class="ep-name">${ep.name || `Episode ${ep.episode_number}`}</div>
-          <div class="ep-desc">${ep.overview || ''}</div>
-        </div>
-      </div>
-    `).join('');
+    const episodes = data.episodes || [];
+    window._detailSeasonEpisodes = episodes;
+
+    if (rangeNav) {
+      if (episodes.length > DETAIL_EP_CHUNK_SIZE) {
+        const numChunks = Math.ceil(episodes.length / DETAIL_EP_CHUNK_SIZE);
+        rangeNav.style.display = 'flex';
+        rangeNav.innerHTML = Array.from({ length: numChunks }, (_, idx) => {
+          const start = idx * DETAIL_EP_CHUNK_SIZE + 1;
+          const end = Math.min((idx + 1) * DETAIL_EP_CHUNK_SIZE, episodes.length);
+          return `
+            <button class="range-tab ${idx === 0 ? 'on' : ''}" 
+                    type="button"
+                    data-chunk="${idx}"
+                    onclick="window.switchDetailEpisodeChunk(${idx})">
+              Episodes ${start}–${end}
+            </button>
+          `;
+        }).join('');
+      } else {
+        rangeNav.style.display = 'none';
+        rangeNav.innerHTML = '';
+      }
+    }
+
+    window.renderDetailEpisodeGrid(0);
   } catch {
+    if (rangeNav) {
+      rangeNav.style.display = 'none';
+      rangeNav.innerHTML = '';
+    }
     grid.innerHTML = '<div style="color:var(--txt3);font-size:0.85rem">Could not load episodes.</div>';
   }
+};
+
+window.switchDetailEpisodeChunk = (chunkIdx) => {
+  window._detailActiveChunk = +chunkIdx;
+  document.querySelectorAll('#detail-ep-range-tabs .range-tab').forEach(b => {
+    b.classList.toggle('on', +b.dataset.chunk === window._detailActiveChunk);
+  });
+  window.renderDetailEpisodeGrid(window._detailActiveChunk);
+};
+
+window.renderDetailEpisodeGrid = (chunkIdx = 0) => {
+  const grid = document.getElementById('ep-grid');
+  if (!grid) return;
+
+  const episodes = window._detailSeasonEpisodes || [];
+  const tvId = window._detailTvId;
+  const seasonNumber = window._detailSeasonNumber;
+
+  let displayEpisodes = episodes;
+  if (episodes.length > DETAIL_EP_CHUNK_SIZE) {
+    const start = chunkIdx * DETAIL_EP_CHUNK_SIZE;
+    displayEpisodes = episodes.slice(start, start + DETAIL_EP_CHUNK_SIZE);
+  }
+
+  if (!displayEpisodes.length) {
+    grid.innerHTML = '<div style="color:var(--txt3);font-size:0.85rem">No episodes found for this season.</div>';
+    return;
+  }
+
+  grid.innerHTML = displayEpisodes.map(ep => `
+    <div class="ep-card" onclick="window.openPlayerModal({ id: ${tvId}, type: 'tv', season: ${seasonNumber}, episode: ${ep.episode_number} })">
+      <img class="ep-thumb" src="${IM.still(ep.still_path)}" alt="Episode ${ep.episode_number}" loading="lazy" />
+      <div style="min-width:0">
+        <div class="ep-num">S${seasonNumber} · E${ep.episode_number} ${ep.runtime ? `· ${ep.runtime}m` : ''}</div>
+        <div class="ep-name">${ep.name || `Episode ${ep.episode_number}`}</div>
+        <div class="ep-desc">${ep.overview || ''}</div>
+      </div>
+    </div>
+  `).join('');
 };
 
 /**
@@ -2565,10 +2645,6 @@ async function renderPageWatch(id, type, season, ep) {
             <div class="watch-title">${title}</div>
             ${type === 'tv' ? `<div class="watch-sub">Season ${season} · Episode ${ep}</div>` : ''}
           </div>
-          <div class="cinesrc-badge">
-            <span class="cinesrc-dot"></span>
-            <span class="cinesrc-text">CineSrc Ultra HD</span>
-          </div>
           <button class="btn btn-out btn-ico" data-fid="${id}" onclick="window.handleToggleWatchlist(${id})" title="Watchlist">
             ${isInWatchlist(id) ? I.heart : I.bookmark}
           </button>
@@ -2610,6 +2686,7 @@ async function renderPageWatch(id, type, season, ep) {
                 </div>
               `).join('')}
             </div>
+            <div class="ep-range-tabs" id="watch-ep-range-tabs" style="display:none"></div>
             <div class="ep-grid" id="watch-ep-grid">${renderEpisodeSkeletons(6)}</div>
           </div>
         ` : ''}
@@ -2626,34 +2703,105 @@ async function renderPageWatch(id, type, season, ep) {
   }
 }
 
+window._watchTvId = null;
+window._watchSeasonNumber = 1;
+window._watchCurrentEp = 1;
+window._watchSeasonEpisodes = [];
+window._watchActiveChunk = 0;
+
 window.loadWatchEpisodes = async (tvId, s, currentEp) => {
+  window._watchTvId = tvId;
+  window._watchSeasonNumber = s;
+  window._watchCurrentEp = currentEp;
+
   document.querySelectorAll('#watch-s-tabs .stab').forEach(t => {
     t.classList.toggle('on', t.textContent.trim() === `Season ${s}`);
   });
   const grid = document.getElementById('watch-ep-grid');
+  const rangeNav = document.getElementById('watch-ep-range-tabs');
   if (!grid) return;
   grid.innerHTML = renderEpisodeSkeletons(6);
 
   try {
     const data = await API.season(tvId, s);
-    const showSlug = slugify(title || 'tv');
-    grid.innerHTML = (data.episodes || []).map(episode => {
-      const isCur = episode.episode_number === currentEp && s === State.season;
-      return `
-        <div class="ep-card ${isCur ? 'playing' : ''}" 
-             onclick="navigateTo('/watch/tv/${tvId}/${showSlug}?season=${s}&ep=${episode.episode_number}')">
-          <img class="ep-thumb" src="${IM.still(episode.still_path)}" loading="lazy" />
-          <div style="min-width:0">
-            <div class="ep-num">S${s} · E${episode.episode_number} ${isCur ? '▶ Currently Playing' : ''}</div>
-            <div class="ep-name">${episode.name || `Episode ${episode.episode_number}`}</div>
-            <div class="ep-desc">${episode.overview || ''}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    const episodes = data.episodes || [];
+    window._watchSeasonEpisodes = episodes;
+
+    if (episodes.length > DETAIL_EP_CHUNK_SIZE) {
+      const numChunks = Math.ceil(episodes.length / DETAIL_EP_CHUNK_SIZE);
+      const activeChunk = Math.floor((currentEp - 1) / DETAIL_EP_CHUNK_SIZE);
+      window._watchActiveChunk = Math.min(Math.max(activeChunk, 0), numChunks - 1);
+
+      if (rangeNav) {
+        rangeNav.style.display = 'flex';
+        rangeNav.innerHTML = Array.from({ length: numChunks }, (_, idx) => {
+          const start = idx * DETAIL_EP_CHUNK_SIZE + 1;
+          const end = Math.min((idx + 1) * DETAIL_EP_CHUNK_SIZE, episodes.length);
+          return `
+            <button class="range-tab ${idx === window._watchActiveChunk ? 'on' : ''}"
+                    type="button"
+                    data-chunk="${idx}"
+                    onclick="window.switchWatchEpisodeChunk(${idx})">
+              Episodes ${start}–${end}
+            </button>
+          `;
+        }).join('');
+      }
+    } else {
+      window._watchActiveChunk = 0;
+      if (rangeNav) {
+        rangeNav.style.display = 'none';
+        rangeNav.innerHTML = '';
+      }
+    }
+
+    window.renderWatchEpisodeGrid(window._watchActiveChunk);
   } catch {
+    if (rangeNav) {
+      rangeNav.style.display = 'none';
+      rangeNav.innerHTML = '';
+    }
     grid.innerHTML = '';
   }
+};
+
+window.switchWatchEpisodeChunk = (chunkIdx) => {
+  window._watchActiveChunk = +chunkIdx;
+  document.querySelectorAll('#watch-ep-range-tabs .range-tab').forEach(b => {
+    b.classList.toggle('on', +b.dataset.chunk === window._watchActiveChunk);
+  });
+  window.renderWatchEpisodeGrid(window._watchActiveChunk);
+};
+
+window.renderWatchEpisodeGrid = (chunkIdx = 0) => {
+  const grid = document.getElementById('watch-ep-grid');
+  if (!grid) return;
+  const episodes = window._watchSeasonEpisodes || [];
+  const tvId = window._watchTvId;
+  const s = window._watchSeasonNumber;
+  const currentEp = window._watchCurrentEp;
+
+  let displayEpisodes = episodes;
+  if (episodes.length > DETAIL_EP_CHUNK_SIZE) {
+    const start = chunkIdx * DETAIL_EP_CHUNK_SIZE;
+    displayEpisodes = episodes.slice(start, start + DETAIL_EP_CHUNK_SIZE);
+  }
+
+  const showSlug = slugify(title || 'tv');
+  grid.innerHTML = displayEpisodes.map(episode => {
+    const isCur = episode.episode_number === currentEp && s === State.season;
+    return `
+      <div class="ep-card ${isCur ? 'playing' : ''}" 
+           onclick="navigateTo('/watch/tv/${tvId}/${showSlug}?season=${s}&ep=${episode.episode_number}')">
+        <img class="ep-thumb" src="${IM.still(episode.still_path)}" alt="Episode ${episode.episode_number}" loading="lazy" />
+        <div style="min-width:0">
+          <div class="ep-num">S${s} · E${episode.episode_number} ${isCur ? '▶ Currently Playing' : ''}</div>
+          <div class="ep-name">${episode.name || `Episode ${episode.episode_number}`}</div>
+          <div class="ep-desc">${episode.overview || ''}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -2760,11 +2908,23 @@ export async function renderPagePerson(personId, personName) {
             <div style="font-size:0.8rem;color:var(--txt3);margin-top:2px">Movies &amp; TV Appearances</div>
           </div>
 
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <div class="cmt-wrap" style="display:flex;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--r-full);padding:3px;gap:2px">
-              <button class="cmt on" id="pfilter-all" onclick="window.filterPersonCredits('all')">All (${credits.length})</button>
-              <button class="cmt" id="pfilter-movie" onclick="window.filterPersonCredits('movie')">Movies (${credits.filter(c => c.media_type === 'movie').length})</button>
-              <button class="cmt" id="pfilter-tv" onclick="window.filterPersonCredits('tv')">TV Series (${credits.filter(c => c.media_type === 'tv').length})</button>
+          <div class="pfilter-bar-wrap">
+            <div class="pfilter-wrap">
+              <button class="pfilter-btn on" id="pfilter-all" onclick="window.filterPersonCredits('all')">
+                <span class="pfilter-icon">⭐</span>
+                <span class="pfilter-label">All Credits</span>
+                <span class="pfilter-badge">${credits.length}</span>
+              </button>
+              <button class="pfilter-btn" id="pfilter-movie" onclick="window.filterPersonCredits('movie')">
+                <span class="pfilter-icon">🎬</span>
+                <span class="pfilter-label">Movies</span>
+                <span class="pfilter-badge">${credits.filter(c => c.media_type === 'movie').length}</span>
+              </button>
+              <button class="pfilter-btn" id="pfilter-tv" onclick="window.filterPersonCredits('tv')">
+                <span class="pfilter-icon">📺</span>
+                <span class="pfilter-label">TV Series</span>
+                <span class="pfilter-badge">${credits.filter(c => c.media_type === 'tv').length}</span>
+              </button>
             </div>
 
             <div class="sort-select-wrap">
@@ -2795,7 +2955,7 @@ window.renderPagePerson = renderPagePerson;
 
 window.filterPersonCredits = (type) => {
   window._personActiveFilter = type;
-  document.querySelectorAll('.person-credits-hd .cmt').forEach(b => {
+  document.querySelectorAll('.person-credits-hd .pfilter-btn, .person-credits-hd .cmt').forEach(b => {
     b.classList.toggle('on', b.id === `pfilter-${type}`);
   });
   window.updatePersonCreditsDOM();
@@ -2920,7 +3080,7 @@ export async function openPlayerModal({ id, type = 'movie', season = 1, episode 
   const titleEl = document.getElementById('player-modal-title');
   const subEl = document.getElementById('player-modal-sub');
   if (titleEl) titleEl.textContent = titleText;
-  if (subEl) subEl.textContent = type === 'tv' ? `Season ${season} · Episode ${episode}` : (yr(grd(item)) || 'CineSrc Ultra HD');
+  if (subEl) subEl.textContent = type === 'tv' ? `Season ${season} · Episode ${episode}` : (yr(grd(item)) || '');
 
   const watchBtn = document.getElementById('player-modal-watchlist-btn');
   if (watchBtn) {
@@ -3131,6 +3291,7 @@ function renderEpisodeListDOM(seasonNum, activeEpNum) {
             ${isCur ? '<span style="font-size:0.65rem;color:var(--red);font-weight:700">▶ PLAYING</span>' : ''}
           </div>
           <div class="cinema-ep-name">${ep.name || `Episode ${ep.episode_number}`}</div>
+          ${ep.overview ? `<div class="cinema-ep-overview">${ep.overview}</div>` : ''}
         </div>
       </div>
     `;
@@ -3461,6 +3622,10 @@ export function initApp() {
   if (typeof document === 'undefined') return;
   const main = document.getElementById('main');
   if (!main) return;
+  if (!State._navStack) {
+    const cur = (window.location.pathname || '/') + (window.location.search || '');
+    State._navStack = [cur];
+  }
   renderNavbar();
   setupDrawerSearch();
   handleRoute();
