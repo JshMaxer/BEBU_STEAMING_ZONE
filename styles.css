@@ -400,20 +400,30 @@ body {
 
 .notif-dropdown {
   position: absolute;
-  top: calc(100% + 12px);
+  top: calc(100% + 10px);
   right: 0;
-  width: 350px;
-  max-width: 90vw;
+  width: min(360px, calc(100vw - 24px));
+  max-height: 80vh;
+  overflow-y: auto;
   background: rgba(14, 14, 24, 0.98);
   border: 1px solid var(--brd-light);
-  border-radius: var(--r-md);
+  border-radius: 14px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.92);
   display: none;
-  z-index: 310;
-  overflow: hidden;
+  z-index: 350;
+  box-sizing: border-box;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   animation: dropIn 0.22s var(--ease);
+}
+@media (max-width: 600px) {
+  .notif-dropdown {
+    position: fixed;
+    top: 60px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
 }
 .notif-dropdown.show {
   display: flex;
@@ -1057,12 +1067,33 @@ body {
   overflow-x: auto;
   padding-bottom: 12px;
   scroll-snap-type: x mandatory;
+  scroll-behavior: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   contain: content;
 }
 .card-row::-webkit-scrollbar {
   display: none;
+}
+.card-row,
+.cast-row,
+.chunk-tabs-row,
+#detail-ep-range-tabs,
+#watch-ep-range-tabs,
+#cinema-range-nav {
+  cursor: grab;
+  user-select: none;
+}
+.card-row.dragging,
+.cast-row.dragging,
+.chunk-tabs-row.dragging,
+#detail-ep-range-tabs.dragging,
+#watch-ep-range-tabs.dragging,
+#cinema-range-nav.dragging,
+.dragging {
+  cursor: grabbing !important;
+  user-select: none !important;
+  scroll-snap-type: none !important;
 }
 .rarr {
   position: absolute;
@@ -1092,11 +1123,15 @@ body {
 .rarrr { right: -16px; }
 
 /* ── CARDS (2:3 aspect ratio, glass styling) ── */
-.card {
+.card, .rec-wrap {
   flex-shrink: 0;
+  cursor: pointer !important;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.card {
   width: 185px;
   scroll-snap-align: start;
-  cursor: pointer;
   position: relative;
   border-radius: var(--r-md);
   overflow: hidden;
@@ -1136,6 +1171,9 @@ body {
   display: block;
   background: var(--bg3);
   transition: transform 0.4s var(--ease);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .card:hover .card-img {
   transform: scale(1.04);
@@ -1375,7 +1413,9 @@ body {
   flex-shrink: 0;
   width: 235px;
   scroll-snap-align: start;
-  cursor: pointer;
+  cursor: pointer !important;
+  user-select: none;
+  -webkit-user-drag: none;
   display: flex;
   align-items: flex-end;
   position: relative;
@@ -1423,6 +1463,9 @@ body {
   object-fit: cover;
   display: block;
   background: var(--bg3);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .t10-ovl {
   position: absolute;
@@ -1576,6 +1619,7 @@ body {
   background: 
     linear-gradient(to right, rgba(7, 7, 11, 0.99) 0%, rgba(7, 7, 11, 0.65) 45%, rgba(7, 7, 11, 0.3) 100%),
     linear-gradient(to top, #07070b 0%, rgba(7, 7, 11, 0.9) 15%, transparent 60%);
+  pointer-events: none !important;
 }
 .det-top-bar {
   position: sticky;
@@ -1586,7 +1630,10 @@ body {
   pointer-events: none;
 }
 .det-back-btn, .det-back {
-  pointer-events: auto;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 100;
+  user-select: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1751,7 +1798,9 @@ body {
   flex-shrink: 0;
   width: 86px;
   text-align: center;
-  cursor: pointer;
+  cursor: pointer !important;
+  user-select: none;
+  -webkit-user-drag: none;
   transition: transform 0.22s var(--ease);
 }
 .cast-photo {
@@ -1763,6 +1812,9 @@ body {
   margin: 0 auto 6px;
   border: 2px solid var(--brd);
   transition: all 0.22s var(--ease);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .cast-card:hover .cast-photo {
   border-color: var(--red);
@@ -2007,7 +2059,9 @@ body {
   flex-shrink: 0;
   width: 175px;
   scroll-snap-align: start;
-  cursor: pointer;
+  cursor: pointer !important;
+  user-select: none;
+  -webkit-user-drag: none;
   display: flex;
   flex-direction: column;
 }
@@ -2033,6 +2087,9 @@ body {
   height: 240px;
   object-fit: cover;
   display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .col-ovl {
   position: absolute;
@@ -2328,10 +2385,11 @@ body {
   max-height: 100dvh;
   pointer-events: none;
 }
-.cinema-modal-overlay.active {
-  display: flex;
-  opacity: 1;
-  pointer-events: auto;
+.cinema-modal-overlay.active,
+.cinema-modal-overlay.open {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 body.cinema-modal-open {
   overflow: hidden !important;
@@ -2426,19 +2484,20 @@ body.cinema-modal-open {
   border-color: var(--red);
   color: #fff;
 }
+/* Show strictly on mobile/touch screens regardless of current orientation */
 .player-rotate-btn,
 .cinema-rotate-btn,
 #player-rotate-btn {
-  display: none !important;
+  display: none;
 }
 
-@media (max-width: 768px) and (orientation: portrait) {
+@media (max-width: 900px) and (hover: none) and (pointer: coarse) {
   .player-rotate-btn,
   .cinema-rotate-btn,
   #player-rotate-btn {
-    display: inline-flex !important;
+    display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     padding: 7px 12px;
     border-radius: var(--r-full);
     background: rgba(255, 255, 255, 0.1);
@@ -2450,6 +2509,26 @@ body.cinema-modal-open {
     transition: background 0.2s, border-color 0.2s;
   }
 }
+
+@media (max-width: 768px) {
+  .player-rotate-btn,
+  .cinema-rotate-btn,
+  #player-rotate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: var(--r-full);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--txt);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+}
+
 .player-rotate-btn:hover,
 .cinema-rotate-btn:hover {
   background: rgba(232, 19, 58, 0.25);
@@ -2461,6 +2540,7 @@ body.cinema-modal-open {
   font-size: 0.9rem;
 }
 
+#player-modal.force-landscape,
 #player-modal-container.css-landscape-fallback {
   transform: rotate(90deg);
   transform-origin: center center;
@@ -2751,9 +2831,8 @@ body.cinema-modal-open {
 
 .cinema-ep-item {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  align-items: center;
+  padding: 10px 14px;
   border-radius: var(--r-md);
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -2761,6 +2840,8 @@ body.cinema-modal-open {
   transition: all 0.22s var(--ease);
   position: relative;
   overflow: hidden;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 .cinema-ep-item:hover {
   background: rgba(255, 255, 255, 0.08);
@@ -2773,6 +2854,48 @@ body.cinema-modal-open {
   border-color: var(--red);
   box-shadow: 0 0 14px rgba(232, 19, 58, 0.3);
 }
+
+.ep-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.ep-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--red);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.ep-title,
+.cinema-ep-name,
+.ep-card-title {
+  color: var(--txt);
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  display: block;
+}
+
+.ep-playing {
+  font-size: 0.65rem;
+  color: var(--red);
+  font-weight: 700;
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .cinema-ep-thumb-wrap {
   position: relative;
   width: 100%;
@@ -2820,15 +2943,6 @@ body.cinema-modal-open {
 .cinema-ep-time {
   font-size: 0.68rem;
   color: var(--txt3);
-}
-.cinema-ep-name,
-.ep-card-title {
-  font-size: 0.84rem;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: #fff;
 }
 .cinema-ep-overview {
   font-size: 0.72rem;

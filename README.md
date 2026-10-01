@@ -123,14 +123,56 @@ Then open your browser to `http://localhost:3000/`.
 
 ---
 
+---
+
+## 🔌 Integrated APIs & Services
+
+### 1. TMDB (The Movie Database)
+- **Metadata & Catalog**: Fetches rich movies and television metadata, seasonal lineups, episodes, actor profiles, full credits/filmographies, and trending algorithms.
+- **Image Delivery Pipeline**: Efficient multi-tier asset resolution (posters, backdrops, still stills, and profile photos) through TMDB CDN endpoints.
+- **Client Cache & Concurrency Guard**: Embedded 350-item LRU memory cache, concurrency rate limiter (`batchFetch`), and automated retry handlers in `js/api.js`.
+
+### 2. CineSrc Player API
+- **High-Performance Playback**: Dynamic stream embedding for movies (`/embed/movie/{id}`) and TV shows (`/embed/tv/{id}?s={season}&e={episode}`).
+- **Bidirectional Telemetry**: Real-time postMessage synchronization:
+  - `cinesrc:timeupdate` — Throttled watch progress reporting persisted straight to LocalStorage.
+  - `cinesrc:nextepisode` — Seamless auto-transition to subsequent series episodes without page reload.
+  - `cinesrc:close` — Native handling for in-player exit buttons directly closing overlay modals.
+
+---
+
 ## 🛠️ Modular Architecture
 
-- **`index.html`** — Semantic HTML5 shell, container roots, global modals, and script module loader.
-- **`styles.css`** — Cinema dark design system with obsidian tones (`#07070b`), neon red accents (`#e8133a`), frosted glassmorphism, responsive breakpoints, and custom typography.
-- **`js/api.js`** — TMDB API client with 350-item LRU memory caching, request-chunking concurrency controller (`batchFetch`), and rate-limit guard.
-- **`js/state.js`** — LocalStorage state management (Watchlist, History, Progress, Preferences) with pub/sub event syncing and JSON backup/restore.
+- **`index.html`** — Semantic HTML5 shell, container roots, global cinema player/trailer modals, and native ES module bootstrapper.
+- **`styles.css`** — Cinema dark design system with obsidian tones (`#07070b`), neon crimson accents (`#e8133a`), frosted glassmorphism, responsive breakpoints, custom scrollbars, and fluid mobile layouts.
+- **`js/api.js`** — High-speed TMDB API wrapper featuring 350-item LRU memory caching, request-chunking concurrency controller (`batchFetch`), and rate-limit guard.
+- **`js/state.js`** — Pure LocalStorage state management (Watchlist, History, Progress, Notifications, Preferences) with pub/sub event syncing and JSON backup/restore.
 - **`js/player.js`** — Embed URL generator for CineSrc playback, postMessage telemetry synchronization, auto next-episode event handling, and player close listener.
-- **`js/app.js`** — HTML5 History routing engine, view renderers, calendar in-place detail toggle, and lifecycle memory cleanup.
+- **`js/app.js`** — HTML5 History routing engine, view renderers, carousel drag-scrolling engine, mobile orientation controller, and lifecycle memory cleanup.
+
+---
+
+## 📋 Comprehensive Feature List
+
+- **Episode Chunking**: Breaks large TV seasons (e.g. Doraemon, anime, long-running dramas) into digestible 25-episode horizontal tabs with mouse-wheel and drag support.
+- **Player Episode Drawer**: Slide-out drawer with 2-column episode cards, robust fallback title extraction (`ep.name` vs `Episode ${ep.episode_number}`), badge tags, and active playback indicators.
+- **Persistent Mobile Orientation Toggle**: Bidirectional landscape <-> portrait button on touch viewports utilizing `screen.orientation.lock()` with CSS 3D fallback and dynamic labels (`📐 Rotate` vs `📱 Portrait`).
+- **Kinetic Smooth Drag-to-Scroll**: Physics-based horizontal drag scrolling across all carousels, trending rows, cast cards, and episode chunk bars with momentum inertia decay, drag threshold tolerance (6px), and zero click blockage on normal taps.
+- **Audio Leak Prevention**: Absolute destruction of video player & YouTube trailer iframe threads on modal dismissal (`about:blank` + element unmounting + CineSrc pause commands) to eliminate lingering background audio.
+- **Strict pushState Guard & Single-Action Back Handler**: Idempotent routing engine prevents duplicate history entries on intra-page adjustments, and `goBack()` resolves directly in a single action without deadlock.
+- **Search Auto-Reset**: Automatic clearing of search inputs and dropdowns on navigating to any non-search view.
+
+---
+
+## 📝 Changelog
+
+### v2.4.1 (Latest)
+- **Zero-Blockage Carousel Click & Kinetic Drag-to-Scroll**: Removed aggressive pointer-event blockers and premature mousedown grabbing states. Clicks now pass through cleanly to all movie, TV, top 10, cast, and continue-watching cards without converting into drags. Real drags activate smoothly beyond a 6px threshold with friction decay (`velocity *= 0.92`).
+- **HTML5 Drag-and-Drop Suppression**: Applied `pointer-events: none` and `-webkit-user-drag: none` to all card images, poster thumbnails, and cast avatars to permanently prevent browser native image drag ghosts from hijacking card click taps.
+- **Complete Player Audio Teardown**: Replaced basic `src = ''` clearing with full iframe unmounting (`iframe.remove()`), source destruction (`about:blank`), and CineSrc `pause` postMessage commands on `closePlayer()`, permanently eliminating background audio leaks.
+- **Permanent Back Button Loop Elimination**: Added a strict pushState guard preventing identical URL pushes in `routeTo()` and `go()`, removed artificial click debouncing, and ensured modals and sub-views unwind cleanly on the very first tap.
+- **Player Drawer Polish**: Fixed missing episode titles with fallback extraction and responsive 2-column pill markup.
+- **Persistent Mobile Rotate Toggle**: Bidirectional landscape <-> portrait toggle for touch viewports with dynamic orientation icons.
 
 ---
 

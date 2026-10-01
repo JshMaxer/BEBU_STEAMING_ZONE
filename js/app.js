@@ -144,6 +144,49 @@ export function isSameMedia(urlA, urlB) {
   return a && b && a === b;
 }
 
+export function constructRouteUrl(target, params = {}) {
+  if (!target || target === 'home' || target === '/') return '/';
+  if (typeof target === 'string') {
+    if (target.startsWith('/') || target.startsWith('#')) {
+      let clean = target.replace(/^#\/?/, '/');
+      if (!clean.startsWith('/')) clean = '/' + clean;
+      if (clean === '/home' || clean === '/index.html') return '/';
+      return clean;
+    }
+    if (target === 'person') {
+      const id = params.id;
+      const slug = slugify(params.name || 'cast');
+      return `/person/${id}/${slug}`;
+    }
+    if (target === 'movie') {
+      const id = params.id;
+      const slug = slugify(params.title || params.name || 'movie');
+      return `/movie/${id}/${slug}`;
+    }
+    if (target === 'tv') {
+      const id = params.id;
+      const slug = slugify(params.name || params.title || 'tv');
+      return `/tv/${id}/${slug}`;
+    }
+    if (target === 'detail') {
+      const t = params.type === 'tv' ? 'tv' : 'movie';
+      const id = params.id;
+      const slug = slugify(params.title || params.name || t);
+      return `/${t}/${id}/${slug}`;
+    }
+    if (target === 'genre') {
+      const id = params.id;
+      const slug = slugify(params.name || 'genre');
+      return `/genre/${id}/${slug}`;
+    }
+    if (target === 'search') {
+      return `/search?q=${encodeURIComponent(params.q || '')}`;
+    }
+    return `/${target}`;
+  }
+  return '/';
+}
+
 export function routeTo(url, options = {}) {
   if (typeof window === 'undefined') return;
 
@@ -158,9 +201,22 @@ export function routeTo(url, options = {}) {
   if (!cleanUrl.startsWith('/')) {
     cleanUrl = '/' + cleanUrl;
   }
+  if (cleanUrl === '/home' || cleanUrl === '/index.html') {
+    cleanUrl = '/';
+  }
+  if (cleanUrl.length > 1 && cleanUrl.endsWith('/')) {
+    cleanUrl = cleanUrl.slice(0, -1);
+  }
 
-  const currentUrl = (window.location.pathname || '/') + (window.location.search || '');
-  // Idempotent Router: if destination matches active view, never push a duplicate entry
+  let currentUrl = (window.location.pathname || '/') + (window.location.search || '');
+  if (currentUrl === '/home' || currentUrl === '/index.html') {
+    currentUrl = '/';
+  }
+  if (currentUrl.length > 1 && currentUrl.endsWith('/')) {
+    currentUrl = currentUrl.slice(0, -1);
+  }
+
+  // Strict pushState Guard: never push identical state to browser history
   if (currentUrl === cleanUrl) return;
 
   if (replace) {
@@ -170,7 +226,6 @@ export function routeTo(url, options = {}) {
   }
 
   const { root } = parseRoute();
-  // Only top-level browse hubs are tracked as browse return points (never person, detail, or watch)
   if (['home', 'movies', 'tv', 'trending', 'calendar', 'genres', 'watchlist', 'search'].includes(root)) {
     State._lastBrowsePage = cleanUrl;
   }
@@ -182,24 +237,23 @@ export function navigateTo(url, replace = false) {
   return routeTo(url, { replace: typeof replace === 'boolean' ? replace : false });
 }
 
-export function handleBack(fallback) {
-  // If video player modal is currently open, dismiss it directly without altering history
+export function goBack() {
+  // 1. If a modal or player is open, dismiss it first without calling history.back()
   const playerModal = document.getElementById('player-modal');
-  if (playerModal && playerModal.classList.contains('active')) {
-    closePlayerModal();
+  if (playerModal && (playerModal.classList.contains('open') || playerModal.classList.contains('active') || playerModal.style.display === 'flex')) {
+    closePlayer();
     return;
   }
 
-  // If trailer modal is open, dismiss it
+  // 2. If trailer modal is open, dismiss it first without calling history.back()
   const trailerModal = document.getElementById('trailer-modal') || document.getElementById('tmodal');
-  if (trailerModal && trailerModal.classList.contains('open')) {
+  if (trailerModal && (trailerModal.classList.contains('open') || trailerModal.classList.contains('active') || trailerModal.style.display === 'flex')) {
     closeTrailer();
     return;
   }
 
+  // 3. If in watch player from direct route, unwind to detail view using replaceState
   const { root, segments } = parseRoute();
-
-  // If in watch player from direct route, unwind to detail view using replaceState
   if (root === 'watch') {
     const type = segments[1] || 'movie';
     const id = segments[2];
@@ -208,70 +262,53 @@ export function handleBack(fallback) {
     return;
   }
 
-  // Sync navigation exclusively with native HTML5 History API
+  // 4. Navigate back cleanly
   if (typeof window !== 'undefined' && window.history.length > 1) {
     window.history.back();
   } else {
-    const dest = fallback || State._lastBrowsePage || 'home';
-    if (dest === 'home' || dest === '/') {
-      go('home');
-    } else {
-      routeTo(dest);
-    }
+    go('home', {}, { replace: true });
   }
 }
-export const goBack = handleBack;
+export const handleBack = goBack;
 
-export function go(target, params = {}) {
-  if (typeof target === 'string') {
-    if (target.startsWith('/') || target.startsWith('#')) {
-      routeTo(target);
-    } else if (target === 'person') {
-      const id = params.id;
-      const slug = slugify(params.name || 'cast');
-      routeTo(`/person/${id}/${slug}`);
-    } else if (target === 'movie') {
-      const id = params.id;
-      const slug = slugify(params.title || params.name || 'movie');
-      routeTo(`/movie/${id}/${slug}`);
-    } else if (target === 'tv') {
-      const id = params.id;
-      const slug = slugify(params.name || params.title || 'tv');
-      routeTo(`/tv/${id}/${slug}`);
-    } else if (target === 'detail') {
-      const t = params.type === 'tv' ? 'tv' : 'movie';
-      const id = params.id;
-      const slug = slugify(params.title || params.name || t);
-      routeTo(`/${t}/${id}/${slug}`);
-    } else if (target === 'genre') {
-      const id = params.id;
-      const slug = slugify(params.name || 'genre');
-      routeTo(`/genre/${id}/${slug}`);
-    } else if (target === 'watch') {
-      // Treat Video Player as Floating Overlay/Modal, NOT a full page navigation state
-      const t = params.type === 'tv' ? 'tv' : 'movie';
-      const id = params.id;
-      openPlayerModal({
-        id,
-        type: t,
-        season: params.season || 1,
-        episode: params.episode || 1,
-        resume: params.resume ?? true
-      });
-    } else if (target === 'search') {
-      routeTo(`/search?q=${encodeURIComponent(params.q || '')}`);
-    } else {
-      routeTo(`/${target}`);
-    }
+export function go(page, opts = {}, config = {}) {
+  const replace = typeof opts === 'boolean' ? opts : Boolean(config.replace || (opts && opts.replace));
+
+  // If video player modal is requested, handle it directly without altering history
+  if (page === 'watch') {
+    const t = opts.type === 'tv' ? 'tv' : 'movie';
+    const id = opts.id;
+    openPlayerModal({
+      id,
+      type: t,
+      season: opts.season || 1,
+      episode: opts.episode || 1,
+      resume: opts.resume ?? true
+    });
+    return;
   }
+
+  // Auto-clear search inputs on route change if destination is not search
+  if (page !== 'search') {
+    const desktopSearch = document.getElementById('srch-inp');
+    const drawerSearch = document.getElementById('drawer-srch');
+    const mobileSearch = document.getElementById('mobile-srch-inp');
+    if (desktopSearch) desktopSearch.value = '';
+    if (drawerSearch) drawerSearch.value = '';
+    if (mobileSearch) mobileSearch.value = '';
+    closeDrop();
+  }
+
+  const targetUrl = constructRouteUrl(page, opts);
+  routeTo(targetUrl, { replace });
 }
 
 if (typeof window !== 'undefined') {
   window.routeTo = routeTo;
   window.navigateTo = navigateTo;
   window.go = go;
-  window.goBack = handleBack;
-  window.handleBack = handleBack;
+  window.goBack = goBack;
+  window.handleBack = goBack;
 }
 
 export function getPageFromRoot(root, segments = []) {
@@ -344,6 +381,17 @@ export async function handleRoute() {
   const { root, segments, params } = parseRoute();
   const activePage = getPageFromRoot(root, segments);
   State.page = activePage;
+
+  // Auto-clear search inputs on route change if not on search page
+  if (activePage !== 'search' && root !== 'search') {
+    const desktopSearch = document.getElementById('srch-inp');
+    const drawerSearch = document.getElementById('drawer-srch');
+    const mobileSearch = document.getElementById('mobile-srch-inp');
+    if (desktopSearch) desktopSearch.value = '';
+    if (drawerSearch) drawerSearch.value = '';
+    if (mobileSearch) mobileSearch.value = '';
+    closeDrop();
+  }
 
   // Immediately synchronize active navigation classes without lag or off-by-one errors
   updateNavActive(activePage);
@@ -480,6 +528,11 @@ export async function handleRoute() {
   } else {
     await executeRender();
   }
+
+  // Attach global mouse drag-to-scroll to all scrollable rows
+  setTimeout(() => {
+    bindAllDragScrolls();
+  }, 100);
 }
 
 // Native popstate listener for back/forward browser gestures
@@ -745,6 +798,8 @@ function showSearchDrop(items, query) {
 function closeSearchDrop() {
   document.getElementById('sdrop')?.classList.remove('show');
 }
+export const closeDrop = closeSearchDrop;
+window.closeDrop = closeSearchDrop;
 
 // Global click-away to close search drops and notifications
 if (typeof document !== 'undefined') {
@@ -760,76 +815,167 @@ if (typeof document !== 'undefined') {
 }
 
 /**
- * Enable native horizontal mouse-wheel translation (deltaY -> scrollLeft)
- * and click-and-drag scrolling for episode chunking tabs
+ * Kinetic Smooth Drag-to-Scroll Across All Carousels & Grids
+ * Features momentum inertia decay, drag threshold tolerance (6px),
+ * and zero click blockage on normal taps.
  */
-export function enableHorizontalScroll(el) {
-  if (!el || el._hasHorizScroll) return;
-  el._hasHorizScroll = true;
+export function enableSmoothDragScroll(container) {
+  if (!container || container._hasSmoothDrag) return;
+  container._hasSmoothDrag = true;
 
-  // 1. Mouse wheel translation: deltaY -> scrollLeft
-  el.addEventListener('wheel', (evt) => {
-    if (evt.deltaY !== 0) {
-      if (el.scrollWidth > el.clientWidth) {
-        evt.preventDefault();
-        el.scrollLeft += evt.deltaY;
-      }
+  let isDown = false;
+  let startX = 0;
+  let scrollStart = 0;
+  let hasDragged = false;
+  let velocity = 0;
+  let lastX = 0;
+  let lastTime = 0;
+  let momentumID = null;
+
+  container.style.userSelect = 'none';
+
+  // Wheel translation (deltaY -> scrollLeft)
+  container.addEventListener('wheel', (evt) => {
+    if (evt.deltaY !== 0 && container.scrollWidth > container.clientWidth) {
+      evt.preventDefault();
+      container.scrollLeft += evt.deltaY;
     }
   }, { passive: false });
 
-  // 2. Click-and-drag horizontal mouse scrolling
-  let isDown = false;
-  let startX = 0;
-  let scrollLeft = 0;
+  // Suppress HTML5 native image / text drag-and-drop
+  container.addEventListener('dragstart', (e) => {
+    e.preventDefault();
+  });
 
-  el.addEventListener('mousedown', (e) => {
+  container.addEventListener('mousedown', (e) => {
+    // Only trigger on primary left mouse click
     if (e.button !== 0) return;
     isDown = true;
-    el.classList.add('is-dragging');
-    startX = e.pageX - el.offsetLeft;
-    scrollLeft = el.scrollLeft;
+    hasDragged = false;
+    cancelAnimationFrame(momentumID);
+    startX = e.pageX - container.offsetLeft;
+    scrollStart = container.scrollLeft;
+    lastX = e.pageX;
+    lastTime = performance.now();
+    velocity = 0;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    const x = e.pageX - container.offsetLeft;
+    const walk = x - startX;
+
+    // Threshold check: only mark as drag if moved more than 6px
+    if (!hasDragged && Math.abs(walk) > 6) {
+      hasDragged = true;
+      container.classList.add('dragging');
+      container.style.cursor = 'grabbing';
+    }
+
+    if (hasDragged) {
+      e.preventDefault();
+      container.scrollLeft = scrollStart - walk;
+
+      // Track velocity for kinetic release
+      const now = performance.now();
+      const dt = now - lastTime;
+      if (dt > 0) {
+        velocity = (e.pageX - lastX) / dt;
+        lastX = e.pageX;
+        lastTime = now;
+      }
+    }
   });
 
   const stopDrag = () => {
-    if (isDown) {
-      isDown = false;
-      el.classList.remove('is-dragging');
+    if (!isDown) return;
+    isDown = false;
+    container.style.cursor = '';
+    container.classList.remove('dragging');
+
+    // Apply smooth kinetic inertia decay
+    if (hasDragged && Math.abs(velocity) > 0.1) {
+      const step = () => {
+        container.scrollLeft -= velocity * 14;
+        velocity *= 0.92; // Friction decay
+        if (Math.abs(velocity) > 0.05) {
+          momentumID = requestAnimationFrame(step);
+        }
+      };
+      momentumID = requestAnimationFrame(step);
+    }
+
+    if (hasDragged) {
+      // Clear after potential trailing click event
+      setTimeout(() => {
+        hasDragged = false;
+      }, 80);
     }
   };
 
   window.addEventListener('mouseup', stopDrag);
-  window.addEventListener('mouseleave', stopDrag);
 
-  el.addEventListener('mousemove', (e) => {
-    if (!isDown) return;
-    e.preventDefault();
-    const x = e.pageX - el.offsetLeft;
-    const walk = (x - startX) * 1.5;
-    el.scrollLeft = scrollLeft - walk;
-  });
+  // Block click ONLY if a genuine drag took place
+  container.addEventListener('click', (e) => {
+    if (hasDragged) {
+      e.preventDefault();
+      e.stopPropagation();
+      hasDragged = false;
+    }
+  }, true);
 }
-window.enableHorizontalScroll = enableHorizontalScroll;
+
+export function bindAllDragScrolls() {
+  const selector = '.card-row, .row-cards, .chunk-tabs-row, .cast-row, #detail-ep-range-tabs, #watch-ep-range-tabs, #cinema-range-nav, #s-tabs, #watch-s-tabs, .cinema-seasons-nav';
+  document.querySelectorAll(selector).forEach(enableSmoothDragScroll);
+}
+
+export const enableDragScroll = enableSmoothDragScroll;
+export const enableHorizontalScroll = enableSmoothDragScroll;
+window.enableSmoothDragScroll = enableSmoothDragScroll;
+window.enableDragScroll = enableSmoothDragScroll;
+window.enableHorizontalScroll = enableSmoothDragScroll;
+window.bindAllDragScrolls = bindAllDragScrolls;
 
 /**
- * Contextual Screen Rotate Button Visibility
- * Hidden by default; displayed only on mobile/touch viewports in portrait mode
+ * Persistent Mobile Rotate Button Label & Orientation Toggle
+ * Remains visible on mobile/touch screens regardless of orientation
  */
+export function updateRotateButtonLabel() {
+  const btn = document.getElementById('player-rotate-btn');
+  if (!btn) return;
+  const isLandscape = window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
+  btn.innerHTML = isLandscape 
+    ? '<span class="rotate-ico">📱</span> <span>Portrait</span>' 
+    : '<span class="rotate-ico">📐</span> <span>Rotate</span>';
+  btn.setAttribute('title', isLandscape ? 'Switch to Portrait' : 'Rotate to Landscape');
+  btn.setAttribute('aria-label', isLandscape ? 'Switch to Portrait' : 'Rotate to Landscape');
+}
+
 export function updateRotateButtonVisibility() {
   const btn = document.getElementById('player-rotate-btn');
   if (!btn) return;
   const isTouch = ('ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0));
-  const isMobile = window.innerWidth <= 768;
-  const isPortrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
-  if (isTouch && isMobile && isPortrait) {
-    btn.style.setProperty('display', 'inline-flex', 'important');
+  const isMobile = window.innerWidth <= 900;
+  if (isTouch || isMobile) {
+    btn.style.display = 'inline-flex';
+    updateRotateButtonLabel();
   } else {
-    btn.style.setProperty('display', 'none', 'important');
+    btn.style.display = 'none';
   }
 }
+window.updateRotateButtonLabel = updateRotateButtonLabel;
 window.updateRotateButtonVisibility = updateRotateButtonVisibility;
 if (typeof window !== 'undefined') {
   window.addEventListener('resize', updateRotateButtonVisibility);
-  window.addEventListener('orientationchange', updateRotateButtonVisibility);
+  window.addEventListener('orientationchange', () => {
+    setTimeout(updateRotateButtonVisibility, 150);
+  });
+  if (screen.orientation && screen.orientation.addEventListener) {
+    screen.orientation.addEventListener('change', () => {
+      setTimeout(updateRotateButtonVisibility, 150);
+    });
+  }
 }
 
 /**
@@ -1560,6 +1706,7 @@ async function renderPageHome() {
           ${renderRow('oa', '📡 Currently Airing TV', (onAir.results || []).slice(0, 18), { type: 'tv' })}
           ${renderFooter()}
         `;
+        bindAllDragScrolls();
       }
     });
   } catch (err) {
@@ -2899,16 +3046,20 @@ window.renderDetailEpisodeGrid = (chunkIdx = 0) => {
     return;
   }
 
-  grid.innerHTML = displayEpisodes.map(ep => `
-    <div class="ep-card" onclick="window.openPlayerModal({ id: ${tvId}, type: 'tv', season: ${seasonNumber}, episode: ${ep.episode_number} })">
-      <img class="ep-thumb" src="${IM.still(ep.still_path)}" alt="Episode ${ep.episode_number}" loading="lazy" />
-      <div style="min-width:0">
-        <div class="ep-num">S${seasonNumber} · E${ep.episode_number} ${ep.runtime ? `· ${ep.runtime}m` : ''}</div>
-        <div class="ep-name">${ep.name || `Episode ${ep.episode_number}`}</div>
-        <div class="ep-desc">${ep.overview || ''}</div>
+  grid.innerHTML = displayEpisodes.map(ep => {
+    const rawName = (ep.name || '').trim();
+    const epTitle = rawName && !rawName.match(/^Episode \d+$/i) ? rawName : `Episode ${ep.episode_number}`;
+    return `
+      <div class="ep-card" onclick="window.openPlayerModal({ id: ${tvId}, type: 'tv', season: ${seasonNumber}, episode: ${ep.episode_number} })">
+        <img class="ep-thumb" src="${IM.still(ep.still_path)}" alt="Episode ${ep.episode_number}" loading="lazy" />
+        <div style="min-width:0">
+          <div class="ep-num">S${seasonNumber} · E${ep.episode_number} ${ep.runtime ? `· ${ep.runtime}m` : ''}</div>
+          <div class="ep-name">${epTitle}</div>
+          <div class="ep-desc">${ep.overview || ''}</div>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 };
 
 /**
@@ -3201,19 +3352,22 @@ window.renderWatchEpisodeGrid = (chunkIdx = 0) => {
   const showSlug = slugify(title || 'tv');
   grid.innerHTML = displayEpisodes.map(episode => {
     const isCur = episode.episode_number === currentEp && s === State.season;
+    const rawName = (episode.name || '').trim();
+    const epTitle = rawName && !rawName.match(/^Episode \d+$/i) ? rawName : `Episode ${episode.episode_number}`;
     return `
       <div class="ep-card ${isCur ? 'playing' : ''}" 
            onclick="window.openPlayerModal({ id: ${tvId}, type: 'tv', season: ${s}, episode: ${episode.episode_number} })">
         <img class="ep-thumb" src="${IM.still(episode.still_path)}" alt="Episode ${episode.episode_number}" loading="lazy" />
         <div style="min-width:0">
           <div class="ep-num">S${s} · E${episode.episode_number} ${isCur ? '▶ Currently Playing' : ''}</div>
-          <div class="ep-name">${episode.name || `Episode ${episode.episode_number}`}</div>
+          <div class="ep-name">${epTitle}</div>
           <div class="ep-desc">${episode.overview || ''}</div>
         </div>
       </div>
     `;
   }).join('');
 };
+window.loadWEps = window.loadWatchEpisodes;
 
 /* ═══════════════════════════════════════════════════════════════════
    ACTOR / CAST MEMBER FILMOGRAPHY VIEW
@@ -3419,23 +3573,46 @@ let activeTrailerKey = null;
 export function openTrailerModal(key) {
   activeTrailerKey = key;
   const modal = document.getElementById('trailer-modal') || document.getElementById('tmodal');
-  const iframe = document.getElementById('trailer-iframe') || document.getElementById('tr-fr');
+  let iframe = document.getElementById('trailer-iframe') || document.getElementById('tr-fr');
+  if (!iframe && modal) {
+    const box = modal.querySelector('.tm-box') || modal;
+    iframe = document.createElement('iframe');
+    iframe.id = 'trailer-iframe';
+    iframe.allowFullscreen = true;
+    iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+    box.appendChild(iframe);
+  }
   if (modal && iframe) {
-    // enablejsapi=1 allows Space key to play/pause
     iframe.src = `https://www.youtube.com/embed/${key}?autoplay=1&rel=0&enablejsapi=1`;
-    modal.classList.add('open');
+    modal.style.display = 'flex';
+    modal.classList.add('open', 'active');
   }
 }
 
 export function closeTrailer() {
   const modal = document.getElementById('trailer-modal') || document.getElementById('tmodal');
   const iframe = document.getElementById('trailer-iframe') || document.getElementById('tr-fr');
-  if (modal) modal.classList.remove('open');
+  if (modal) {
+    modal.classList.remove('open', 'active');
+    modal.style.display = 'none';
+  }
   if (iframe) {
-    // Complete audio buffer destruction
+    try {
+      iframe.contentWindow?.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+      iframe.contentWindow?.postMessage('{"event":"command","func":"stopVideo","args":""}', '*');
+    } catch {}
     iframe.src = 'about:blank';
     iframe.removeAttribute('src');
-    iframe.src = '';
+    const parent = iframe.parentNode;
+    iframe.remove();
+    if (parent) {
+      const fresh = document.createElement('iframe');
+      fresh.id = 'trailer-iframe';
+      fresh.allowFullscreen = true;
+      fresh.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+      fresh.src = '';
+      parent.appendChild(fresh);
+    }
   }
   activeTrailerKey = null;
 }
@@ -3457,7 +3634,17 @@ export async function openPlayerModal({ id, type = 'movie', season = 1, episode 
   episode = +episode || 1;
 
   const modal = document.getElementById('player-modal');
-  const iframe = document.getElementById('cinema-iframe');
+  let iframe = document.getElementById('cinema-iframe') || document.getElementById('player-iframe') || document.getElementById('player-frame');
+  if (!iframe) {
+    const wrap = document.getElementById('cinema-iframe-wrap') || document.getElementById('cinema-player-frame');
+    if (wrap) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'cinema-iframe';
+      iframe.allowFullscreen = true;
+      iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+      wrap.appendChild(iframe);
+    }
+  }
   if (!modal || !iframe) return;
 
   // 0. Kill background hero carousel timer to eliminate lag & frame drops during video playback
@@ -3526,13 +3713,15 @@ export async function openPlayerModal({ id, type = 'movie', season = 1, episode 
       highlightActiveCinemaEpisode(nextS, nextE);
     },
     onClose: () => {
-      closePlayerModal();
+      closePlayer();
     }
   });
 
   iframe.src = embedUrl;
-  modal.classList.add('active');
+  modal.style.display = 'flex';
+  modal.classList.add('active', 'open');
   document.body.classList.add('cinema-modal-open');
+  document.body.style.overflow = 'hidden';
   updateRotateButtonVisibility();
 
   // 5. In-Modal Collapsible Episode Drawer for TV Series
@@ -3547,21 +3736,53 @@ export async function openPlayerModal({ id, type = 'movie', season = 1, episode 
   }
 }
 
-export function closePlayerModal() {
+export function closePlayer() {
   const modal = document.getElementById('player-modal');
-  const iframe = document.getElementById('cinema-iframe');
-  if (modal) modal.classList.remove('active');
-  if (iframe) iframe.src = '';
+  const iframe = document.getElementById('cinema-iframe') || document.getElementById('player-iframe') || document.getElementById('player-frame');
+
+  // 1. Send CineSrc pause postMessage commands as safeguard
+  try {
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage({ type: 'pause', command: 'pause' }, 'https://cinesrc.st');
+      iframe.contentWindow.postMessage({ type: 'cinesrc:command', command: 'pause' }, 'https://cinesrc.st');
+    }
+  } catch {}
+  try {
+    window.postMessage({ type: 'cinesrc:command', command: 'pause' }, 'https://cinesrc.st');
+  } catch {}
+
+  // 2. Destroy the media process immediately by tearing down the iframe
+  if (iframe) {
+    iframe.src = 'about:blank';
+    iframe.removeAttribute('src');
+    const wrap = iframe.parentNode || document.getElementById('cinema-iframe-wrap');
+    iframe.remove();
+    if (wrap) {
+      const freshIframe = document.createElement('iframe');
+      freshIframe.id = 'cinema-iframe';
+      freshIframe.allowFullscreen = true;
+      freshIframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+      freshIframe.src = '';
+      wrap.appendChild(freshIframe);
+    }
+  }
+
+  // 3. Hide modal & restore body scroll
+  if (modal) {
+    modal.classList.remove('active', 'open');
+    modal.style.display = 'none';
+  }
   document.body.classList.remove('cinema-modal-open');
+  document.body.style.overflow = 'auto';
+
+  // 4. Teardown player telemetry & flush progress
   destroyPlayer();
 
-  // Resume background hero carousel if returning to home view
   if (State.page === 'home') {
     State.heroPaused = false;
     startHeroTimer();
   }
 
-  // If user navigated to a dedicated watch URL, update history back to detail view without loop
   const pathname = window.location.pathname || '';
   const hash = window.location.hash || '';
   if (pathname.startsWith('/watch/') || hash.startsWith('#/watch/')) {
@@ -3573,7 +3794,6 @@ export function closePlayerModal() {
     }
   }
 
-  // Unlock device screen orientation and cleanup fullscreen/rotation fallbacks
   try {
     if (screen.orientation && screen.orientation.unlock) {
       screen.orientation.unlock();
@@ -3585,29 +3805,36 @@ export function closePlayerModal() {
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
   } catch (err) {}
+  document.getElementById('player-modal')?.classList.remove('force-landscape');
   document.getElementById('player-modal-container')?.classList.remove('css-landscape-fallback');
 
   activeCinemaItem = null;
 }
+export const closePlayerModal = closePlayer;
+window.closePlayer = closePlayer;
+window.closePlayerModal = closePlayer;
 
-export async function togglePlayerOrientation() {
+export async function toggleMobileOrientation() {
   try {
+    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
     if (!document.fullscreenElement) {
-      const container = document.getElementById('player-modal-container') || document.documentElement;
-      if (container.requestFullscreen) await container.requestFullscreen();
-      else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
+      const target = document.getElementById('player-modal') || document.documentElement;
+      if (target.requestFullscreen) await target.requestFullscreen();
+      else if (target.webkitRequestFullscreen) await target.webkitRequestFullscreen();
     }
     if (screen.orientation && screen.orientation.lock) {
-      const isPortrait = screen.orientation.type.startsWith('portrait');
-      await screen.orientation.lock(isPortrait ? 'landscape' : 'portrait');
+      await screen.orientation.lock(isLandscape ? 'portrait' : 'landscape');
     }
-  } catch (err) {
-    // Fallback for iOS Safari / browsers blocking orientation lock:
-    // Toggle CSS class that rotates the container 90deg and sets width: 100vh; height: 100vw;
+  } catch (e) {
+    // Fallback CSS class toggle for browsers blocking orientation lock
+    document.getElementById('player-modal')?.classList.toggle('force-landscape');
     document.getElementById('player-modal-container')?.classList.toggle('css-landscape-fallback');
   }
+  updateRotateButtonLabel();
 }
-window.togglePlayerOrientation = togglePlayerOrientation;
+export const togglePlayerOrientation = toggleMobileOrientation;
+window.toggleMobileOrientation = toggleMobileOrientation;
+window.togglePlayerOrientation = toggleMobileOrientation;
 
 export function togglePlayerEpisodeDrawer() {
   const drawer = document.getElementById('cinema-ep-drawer');
@@ -3730,25 +3957,20 @@ function renderEpisodeListDOM(seasonNum, activeEpNum) {
 
   list.innerHTML = displayEpisodes.map(ep => {
     const isCur = ep.episode_number === +activeEpNum && +seasonNum === activeCinemaItem?.season;
-    const thumb = ep.still_path ? IM.still(ep.still_path) : 'assets/placeholder-backdrop.svg';
-    const runtime = ep.runtime ? `${ep.runtime}m` : '';
-    const epTitle = (ep.name && ep.name.trim() !== '') ? ep.name : `Episode ${ep.episode_number}`;
+    const rawName = (ep.name || '').trim();
+    // Fall back to clean title if TMDB provides empty string or generic placeholder
+    const epTitle = rawName && !rawName.match(/^Episode \d+$/i) 
+      ? rawName 
+      : `Episode ${ep.episode_number}`;
 
     return `
       <div class="cinema-ep-item ${isCur ? 'active' : ''}" 
            data-s="${seasonNum}" data-e="${ep.episode_number}"
            onclick="window.switchCinemaEpisode(${seasonNum}, ${ep.episode_number})">
-        <div class="cinema-ep-thumb-wrap">
-          <img class="cinema-ep-thumb" src="${thumb}" alt="Episode ${ep.episode_number}" loading="lazy" />
-          ${runtime ? `<span class="cinema-ep-badge">${runtime}</span>` : ''}
-        </div>
-        <div class="ep-card-body cinema-ep-info">
-          <div class="ep-card-badge cinema-ep-header-line">
-            <span class="cinema-ep-num-pill">S${seasonNum} · E${ep.episode_number}</span>
-            ${isCur ? '<span style="font-size:0.65rem;color:var(--red);font-weight:700">▶ PLAYING</span>' : ''}
-          </div>
-          <div class="ep-card-title cinema-ep-name" title="${epTitle.replace(/"/g, '&quot;')}">${epTitle}</div>
-          ${ep.overview ? `<div class="cinema-ep-overview">${ep.overview}</div>` : ''}
+        <div class="ep-card-meta">
+          <span class="ep-badge">S${seasonNum} · E${ep.episode_number}</span>
+          <span class="ep-title" title="${epTitle.replace(/"/g, '&quot;')}">${epTitle}</span>
+          ${isCur ? '<span class="ep-playing">▶ PLAYING</span>' : ''}
         </div>
       </div>
     `;

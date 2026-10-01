@@ -35,7 +35,7 @@
   </div>
 
   <!-- Cinema Player Modal (Optimized 60 FPS / Direct Decoding) -->
-  <div id="player-modal" class="cinema-modal-overlay" onclick="if(event.target === this) window.closePlayerModal()">
+  <div id="player-modal" class="cinema-modal-overlay" onclick="if(event.target === this) window.closePlayer()">
     <div class="cinema-modal-container" id="player-modal-container">
       <div class="cinema-bar">
         <div class="cinema-bar-left">
@@ -45,7 +45,7 @@
           </div>
         </div>
         <div class="cinema-bar-right">
-          <button id="player-rotate-btn" class="cinema-btn cinema-rotate-btn player-rotate-btn" onclick="window.togglePlayerOrientation()" title="Rotate to Landscape" aria-label="Rotate to Landscape">
+          <button id="player-rotate-btn" class="cinema-btn cinema-rotate-btn player-rotate-btn" onclick="window.toggleMobileOrientation()" title="Rotate Screen" aria-label="Rotate Screen">
             <span class="rotate-ico">📐</span>
             <span>Rotate</span>
           </button>
@@ -56,12 +56,12 @@
           <button id="player-modal-watchlist-btn" class="cinema-btn cinema-ico-btn" onclick="window.handlePlayerWatchlistToggle()" title="Watchlist">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
           </button>
-          <button class="cinema-btn cinema-cls-btn cinema-ico-btn" onclick="window.closePlayerModal()" title="Close Player (Esc)" aria-label="Close Player">✕</button>
+          <button class="cinema-btn cinema-cls-btn cinema-ico-btn" onclick="window.closePlayer()" title="Close Player (Esc)" aria-label="Close Player">✕</button>
         </div>
       </div>
       <div class="cinema-body-layout">
         <div class="cinema-player-frame" id="cinema-player-frame">
-          <div class="cinema-iframe-wrap">
+          <div class="cinema-iframe-wrap" id="cinema-iframe-wrap">
             <iframe id="cinema-iframe" src="" allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe>
           </div>
         </div>
