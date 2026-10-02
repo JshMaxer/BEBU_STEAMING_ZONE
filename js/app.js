@@ -944,7 +944,8 @@ window.bindAllDragScrolls = bindAllDragScrolls;
 export function updateRotateButtonLabel() {
   const btn = document.getElementById('player-rotate-btn');
   if (!btn) return;
-  const isLandscape = window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
+  const isForcedLandscape = document.getElementById('player-modal')?.classList.contains('force-landscape');
+  const isLandscape = isForcedLandscape || (window.matchMedia && window.matchMedia('(orientation: landscape)').matches) || (screen.orientation && screen.orientation.type && screen.orientation.type.includes('landscape')) || (window.innerWidth > window.innerHeight);
   btn.innerHTML = isLandscape 
     ? '<span class="rotate-ico">📱</span> <span>Portrait</span>' 
     : '<span class="rotate-ico">📐</span> <span>Rotate</span>';
@@ -976,6 +977,12 @@ if (typeof window !== 'undefined') {
       setTimeout(updateRotateButtonVisibility, 150);
     });
   }
+  document.addEventListener('fullscreenchange', () => {
+    setTimeout(updateRotateButtonVisibility, 150);
+  });
+  document.addEventListener('webkitfullscreenchange', () => {
+    setTimeout(updateRotateButtonVisibility, 150);
+  });
 }
 
 /**
@@ -1232,16 +1239,16 @@ export function renderCard(item, { type = null, wide = false } = {}) {
       <div class="card-qual-wrap">${getQualityBadge(item)}</div>
       
       <div class="card-actions">
-        <button class="card-trailer-btn" 
-                onclick="event.stopPropagation(); window.quickTrailer(${item.id}, '${t}');" 
-                title="Watch Trailer">
-          ${I.trailer}
-        </button>
         <button class="card-fav ${isSaved ? 'saved' : ''}" 
                 data-fid="${item.id}" 
                 onclick="event.stopPropagation(); window.handleToggleWatchlist(${item.id});" 
                 title="Watchlist">
           ${isSaved ? I.bookmarkFilled : I.bookmark}
+        </button>
+        <button class="card-trailer-btn" 
+                onclick="event.stopPropagation(); window.quickTrailer(${item.id}, '${t}');" 
+                title="Watch Trailer">
+          ${I.trailer}
         </button>
       </div>
 
@@ -1274,15 +1281,16 @@ export function renderContinueWatchingCard(item) {
         <span class="card-badge">${t === 'tv' ? 'TV' : 'FILM'}</span>
         <button class="rec-remove" onclick="event.stopPropagation(); window.handleRemoveCW(${item.id});" title="Remove">✕</button>
         <div class="card-actions">
+          <button class="card-fav ${isSaved ? 'saved' : ''}" 
+                  data-fid="${item.id}" 
+                  onclick="event.stopPropagation(); window.handleToggleWatchlist(${item.id});" 
+                  title="Watchlist">
+            ${isSaved ? I.bookmarkFilled : I.bookmark}
+          </button>
           <button class="card-trailer-btn" 
                   onclick="event.stopPropagation(); window.quickTrailer(${item.id}, '${t}');" 
                   title="Watch Trailer">
             ${I.trailer}
-          </button>
-          <button class="card-fav ${isSaved ? 'saved' : ''}" 
-                  data-fid="${item.id}" 
-                  onclick="event.stopPropagation(); window.handleToggleWatchlist(${item.id});">
-            ${isSaved ? I.bookmarkFilled : I.bookmark}
           </button>
         </div>
         <div class="card-info">
@@ -1319,15 +1327,16 @@ export function renderHistoryCard(item) {
         <div class="card-qual-wrap">${getQualityBadge(item)}</div>
         <button class="rec-remove" onclick="event.stopPropagation(); window.handleRemoveHistory(${item.id});" title="Remove">✕</button>
         <div class="card-actions">
+          <button class="card-fav ${isSaved ? 'saved' : ''}" 
+                  data-fid="${item.id}" 
+                  onclick="event.stopPropagation(); window.handleToggleWatchlist(${item.id});" 
+                  title="Watchlist">
+            ${isSaved ? I.bookmarkFilled : I.bookmark}
+          </button>
           <button class="card-trailer-btn" 
                   onclick="event.stopPropagation(); window.quickTrailer(${item.id}, '${t}');" 
                   title="Watch Trailer">
             ${I.trailer}
-          </button>
-          <button class="card-fav ${isSaved ? 'saved' : ''}" 
-                  data-fid="${item.id}" 
-                  onclick="event.stopPropagation(); window.handleToggleWatchlist(${item.id});">
-            ${isSaved ? I.bookmarkFilled : I.bookmark}
           </button>
         </div>
         <div class="card-info">
@@ -3800,7 +3809,7 @@ export function closePlayer() {
     }
   } catch (err) {}
   try {
-    if (document.fullscreenElement) {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
       if (document.exitFullscreen) document.exitFullscreen();
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
@@ -3809,28 +3818,76 @@ export function closePlayer() {
   document.getElementById('player-modal-container')?.classList.remove('css-landscape-fallback');
 
   activeCinemaItem = null;
+  updateRotateButtonLabel();
 }
 export const closePlayerModal = closePlayer;
 window.closePlayer = closePlayer;
 window.closePlayerModal = closePlayer;
 
 export async function toggleMobileOrientation() {
-  try {
-    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-    if (!document.fullscreenElement) {
-      const target = document.getElementById('player-modal') || document.documentElement;
-      if (target.requestFullscreen) await target.requestFullscreen();
-      else if (target.webkitRequestFullscreen) await target.webkitRequestFullscreen();
+  const modal = document.getElementById('player-modal');
+  const container = document.getElementById('player-modal-container');
+  const isForcedLandscape = modal?.classList.contains('force-landscape');
+  const isLandscape = isForcedLandscape || (window.matchMedia && window.matchMedia('(orientation: landscape)').matches) || (screen.orientation && screen.orientation.type && screen.orientation.type.includes('landscape')) || (window.innerWidth > window.innerHeight);
+
+  if (isLandscape) {
+    // Returning to Portrait: Exit fullscreen & unlock/lock orientation to portrait
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        }
+      }
+    } catch (fsErr) {
+      console.warn('Exit fullscreen error:', fsErr);
     }
-    if (screen.orientation && screen.orientation.lock) {
-      await screen.orientation.lock(isLandscape ? 'portrait' : 'landscape');
+
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        await screen.orientation.lock('portrait');
+      } else if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+    } catch (lockErr) {
+      try {
+        if (screen.orientation && screen.orientation.unlock) {
+          screen.orientation.unlock();
+        }
+      } catch (e) {}
     }
-  } catch (e) {
-    // Fallback CSS class toggle for browsers blocking orientation lock
-    document.getElementById('player-modal')?.classList.toggle('force-landscape');
-    document.getElementById('player-modal-container')?.classList.toggle('css-landscape-fallback');
+
+    modal?.classList.remove('force-landscape');
+    container?.classList.remove('css-landscape-fallback');
+  } else {
+    // Entering Landscape: Request fullscreen & lock orientation to landscape
+    const target = modal || document.documentElement;
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      try {
+        if (target.requestFullscreen) {
+          await target.requestFullscreen({ navigationUI: 'hide' }).catch(() => target.requestFullscreen());
+        } else if (target.webkitRequestFullscreen) {
+          await target.webkitRequestFullscreen();
+        }
+      } catch (fsErr) {
+        console.warn('Request fullscreen error:', fsErr);
+      }
+    }
+
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        await screen.orientation.lock('landscape');
+      }
+    } catch (lockErr) {
+      modal?.classList.add('force-landscape');
+      container?.classList.add('css-landscape-fallback');
+    }
   }
+
   updateRotateButtonLabel();
+  setTimeout(updateRotateButtonLabel, 150);
+  setTimeout(updateRotateButtonVisibility, 150);
 }
 export const togglePlayerOrientation = toggleMobileOrientation;
 window.toggleMobileOrientation = toggleMobileOrientation;

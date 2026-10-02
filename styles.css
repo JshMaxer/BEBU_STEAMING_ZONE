@@ -1135,14 +1135,14 @@ body {
   position: relative;
   border-radius: var(--r-md);
   overflow: hidden;
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.3s ease;
+  transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s ease;
   background: var(--bg3);
   border: 1px solid rgba(255, 255, 255, 0.06);
   will-change: transform;
   isolation: isolate;
 }
 .card:hover {
-  transform: translateY(-8px) scale(1.05);
+  transform: translateY(-6px) scale(1.03);
   z-index: 5;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85), 0 0 25px rgba(232, 19, 58, 0.35);
   border-color: rgba(232, 19, 58, 0.5);
@@ -1170,13 +1170,9 @@ body {
   object-fit: cover;
   display: block;
   background: var(--bg3);
-  transition: transform 0.4s var(--ease);
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
-}
-.card:hover .card-img {
-  transform: scale(1.04);
 }
 
 .card-ovl {
@@ -1297,13 +1293,18 @@ body {
 /* Card Floating Action Buttons */
 .card-actions {
   position: absolute;
-  top: 7px;
-  right: 7px;
+  top: 8px;
+  right: 8px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  z-index: 3;
+  gap: 6px;
+  z-index: 4;
+  pointer-events: none;
 }
+.card-actions > * {
+  pointer-events: auto;
+}
+
 .card-fav, .card-trailer-btn {
   width: 28px;
   height: 28px;
@@ -1317,16 +1318,68 @@ body {
   cursor: pointer;
   pointer-events: auto;
   opacity: 0;
-  transition: opacity 0.22s, background 0.22s, transform 0.2s;
+  transition: opacity 0.22s, background 0.22s, transform 0.2s, border-color 0.2s;
+  z-index: 4;
 }
+
+/* Explicitly pinned top-right bookmark button */
+.card > .card-fav,
+.card-fav {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+  pointer-events: auto;
+}
+
 .card-fav.saved {
   color: var(--red);
   opacity: 1 !important;
   background: rgba(14, 14, 23, 0.9);
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
 }
-.card-fav:hover, .card-trailer-btn:hover {
+
+.card-fav:hover {
   background: var(--red);
+  border-color: var(--red);
+  color: #fff;
   transform: scale(1.1);
+}
+
+.card > .card-trailer-btn,
+.card-trailer-btn {
+  position: absolute;
+  top: 42px;
+  right: 8px;
+  z-index: 4;
+  pointer-events: auto;
+}
+
+.card-trailer-btn:hover {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.card-actions .card-fav,
+.card-actions .card-trailer-btn {
+  position: relative;
+  top: auto;
+  right: auto;
+}
+
+.card-actions .card-fav.saved {
+  position: relative;
+  top: auto;
+  right: auto;
+}
+
+.card:not(:hover) .card-trailer-btn {
+  pointer-events: none;
 }
 
 .card-prog {
@@ -1360,8 +1413,8 @@ body {
 }
 .rec-remove {
   position: absolute;
-  top: 7px;
-  right: 40px;
+  top: 8px;
+  right: 42px;
   z-index: 4;
   width: 24px;
   height: 24px;
@@ -1382,6 +1435,10 @@ body {
 .card:hover .rec-remove,
 .rec-wrap:hover .rec-remove {
   opacity: 1;
+}
+.card:not(:hover) .rec-remove,
+.rec-wrap:not(:hover) .rec-remove {
+  pointer-events: none;
 }
 .rec-remove:hover {
   background: var(--red) !important;
@@ -1980,20 +2037,38 @@ body {
 /* Cast Filmography Grid (Responsive for Mobile) */
 .filmography-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 18px;
   padding: 0 4%;
   box-sizing: border-box;
   width: 100%;
 }
-@media (max-width: 480px) {
+.filmography-grid .card {
+  width: 100%;
+  max-width: 100%;
+  flex-shrink: 1;
+}
+.filmography-grid .card-img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+}
+@media (max-width: 600px) {
   .filmography-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    padding: 0 12px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 16px;
+    padding: 0 14px;
+  }
+  .filmography-grid .card {
+    width: 100%;
+    max-width: 100%;
+    flex-shrink: 1;
   }
   .filmography-grid .card-img {
-    height: 210px;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2/3;
   }
 }
 
@@ -4152,12 +4227,19 @@ footer {
   .cgrid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 10px; }
   .cgrid .card-img { height: 160px; }
   .filmography-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 16px;
     padding: 0 12px;
   }
+  .filmography-grid .card {
+    width: 100%;
+    max-width: 100%;
+    flex-shrink: 1;
+  }
   .filmography-grid .card-img {
-    height: 210px;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2/3;
   }
   .pfilter-wrap {
     width: 100%;
